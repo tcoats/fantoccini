@@ -4,19 +4,16 @@ inject('pod', () => {
   const seen = require('seen')
 
   let canvas = null
-  let shapes = []
   let model = null
-  let modelId = null
   let projection = null
   let scene = null
-  let context = null
-  let animator = null
+  const shapes = {}
 
   ecs.on('init', () => {
     canvas = document.getElementById('root')
 
-    modelId = ecs.id()
     model = new seen.Model()
+    model._id = ecs.id()
     model.add(seen.Lights.directional({
       normal: seen.P(-1, 1, 1).normalize(),
       color: seen.Colors.hsl(0.1, 0.3, 0.7),
@@ -29,7 +26,6 @@ inject('pod', () => {
     model.add(seen.Lights.ambient({
       intensity: 0.0015
     }))
-    ecs.emit('display model available', modelId, model)
 
     projection = seen.Projections.perspective(-1, 1, -1, 1)
 
@@ -43,31 +39,34 @@ inject('pod', () => {
 
   ecs.on('new sphere body', (id, body) => {
     const shape = seen.Shapes.sphere(2)
+    shape._id = id
     shape.scale(canvas.height * 0.4)
     shape.bake()
     model.add(shape)
-    shapes.push({
-      id: id,
-      shape: shape,
-      body: body
-    })
+    shapes[id] = { shape: shape, body: body }
   })
 
   ecs.on('display delta', (id, dt) => {
-    for (let shape of shapes) {
-      shape.shape.reset()
-      const a = shape.body.quaternion.toArray()
-      shape.shape.matrix(new seen.Quaternion(...a).toMatrix().m)
-      const p = shape.body.position
-      shape.shape.translate(p.x, p.y, p.z)
+    for (let s of Object.values(shapes)) {
+      s.shape.reset()
+      const a = s.body.quaternion.toArray()
+      s.shape.matrix(new seen.Quaternion(...a).toMatrix().m)
+      const p = s.body.position
+      s.shape.translate(p.x, p.y, p.z)
+    }
+  })
+
+  ecs.on('delete', (id) => {
+    if (shapes[id]) {
+      model.remove(shapes[id].shape)
+      delete shapes[id]
     }
   })
 
   ecs.on('start', () => {
-    context = seen.Context('root')
+    const context = seen.Context('root')
     context.sceneLayer(scene)
-
-    animator = context.animate()
+    const animator = context.animate()
     animator.onBefore((t, dt) => {
       ecs.emit('event delta', null, dt)
       ecs.emit('physics delta', null, dt)

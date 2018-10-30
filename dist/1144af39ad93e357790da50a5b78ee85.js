@@ -65,46 +65,7 @@ require = (function (modules, cache, entry) {
 
   // Override the current require with this new one
   return newRequire;
-})({6:[function(require,module,exports) {
-module.exports = () => {
-  const free = []
-  let counter = 0
-  const listeners = {
-    'delete': [
-      (id) => {
-        free.push(id)
-        res.emit('deleted', id)
-      }
-    ]
-  }
-  const res = {
-    id: () => {
-      if (free.length > 0) return free.pop()
-      counter++
-      return counter
-    },
-    on: (e, fn) => {
-      if (!listeners[e]) listeners[e] = []
-      listeners[e].push(fn)
-    },
-    emit: (e, id, ...args) => {
-      if (!listeners[e]) return
-      for (let listener of listeners[e])
-        listener(id, ...args)
-    },
-    emitAsync: (e, id, ...args) =>
-      Promise.all(!listeners[e] ? [] :
-        listeners[e].map((listener) => listener(id, ...args))),
-    call: (e, id, ...args) => {
-      if (!listeners[e]) return
-      for (let listener of listeners[e])
-        return listener(id, ...args)
-    }
-  }
-  return res
-}
-
-},{}],12:[function(require,module,exports) {
+})({12:[function(require,module,exports) {
 const inject = () => {
   let bindings = {}
   return {
@@ -200,6 +161,38 @@ module.exports.firstornone = (key) => _inject.firstornone(key)
 module.exports.many = (key) => _inject.many(key)
 module.exports.clear = (key) => _inject.clear(key)
 module.exports.clearAll = () => _inject.clearAll()
+
+},{}],6:[function(require,module,exports) {
+module.exports = () => {
+  const free = []
+  let counter = 0
+  const listeners = {
+    'delete': [
+      (id) => {
+        free.push(id)
+        res.emit('deleted', id)
+      }
+    ]
+  }
+  const res = {
+    id: () => {
+      if (free.length > 0) return free.pop()
+      return ++counter
+    },
+    on: (e, fn) => {
+      if (!listeners[e]) listeners[e] = []
+      listeners[e].push(fn)
+    },
+    emit: (e, id, ...args) => {
+      if (!listeners[e]) return
+      for (let listener of listeners[e]) listener(id, ...args)
+    },
+    emitAsync: (e, id, ...args) =>
+      Promise.all(!listeners[e] ? [] :
+        listeners[e].map((listener) => listener(id, ...args)))
+  }
+  return res
+}
 
 },{}],14:[function(require,module,exports) {
 var global = (1,eval)("this");
@@ -13897,10 +13890,10 @@ inject('pod', () => {
   const cannon = require('cannon')
 
   let world = null
-  let sphereBody = null
-  let sphereBodyId = null
   let groundBody = null
   let groundShape = null
+
+  const bodies = {}
 
   ecs.on('init', () => {
     world = new cannon.World()
@@ -13910,10 +13903,17 @@ inject('pod', () => {
     world.gravity.set(0, 0, -9.82)
     world.allowSleep = true
     world.broadphase = new cannon.SAPBroadphase(world)
+  })
 
-    // Create a sphere
-    sphereBodyId = ecs.id()
-    sphereBody = new cannon.Body({
+  ecs.on('load', () => {
+    groundBody = new cannon.Body({ mass: 0 })
+    groundShape = new cannon.Plane()
+    groundBody.addShape(groundShape)
+    world.addBody(groundBody)
+  })
+
+  ecs.on('create sphere', (id) => {
+    const sphereBody = new cannon.Body({
       mass: 5,
       friction: 0.1,
       restitution: 0.3,
@@ -13924,16 +13924,16 @@ inject('pod', () => {
       shape: new cannon.Sphere(1)
     })
     world.addBody(sphereBody)
-
-    // Create a plane
-    groundBody = new cannon.Body({ mass: 0 })
-    groundShape = new cannon.Plane()
-    groundBody.addShape(groundShape)
-    world.addBody(groundBody)
+    sphereBody._id = id
+    bodies[id] = sphereBody
+    ecs.emit('new sphere body', sphereBody._id, sphereBody)
   })
 
-  ecs.on('load', () => {
-    ecs.emit('new sphere body', sphereBodyId, sphereBody)
+  ecs.on('delete', (id) => {
+    if (bodies[id]) {
+      world.removeBody(bodies[id])
+      delete bodies[id]
+    }
   })
 
   ecs.on('physics delta', (id, dt) => {
@@ -18546,19 +18546,16 @@ inject('pod', () => {
   const seen = require('seen')
 
   let canvas = null
-  let shapes = []
   let model = null
-  let modelId = null
   let projection = null
   let scene = null
-  let context = null
-  let animator = null
+  const shapes = {}
 
   ecs.on('init', () => {
     canvas = document.getElementById('root')
 
-    modelId = ecs.id()
     model = new seen.Model()
+    model._id = ecs.id()
     model.add(seen.Lights.directional({
       normal: seen.P(-1, 1, 1).normalize(),
       color: seen.Colors.hsl(0.1, 0.3, 0.7),
@@ -18571,7 +18568,6 @@ inject('pod', () => {
     model.add(seen.Lights.ambient({
       intensity: 0.0015
     }))
-    ecs.emit('display model available', modelId, model)
 
     projection = seen.Projections.perspective(-1, 1, -1, 1)
 
@@ -18585,31 +18581,34 @@ inject('pod', () => {
 
   ecs.on('new sphere body', (id, body) => {
     const shape = seen.Shapes.sphere(2)
+    shape._id = id
     shape.scale(canvas.height * 0.4)
     shape.bake()
     model.add(shape)
-    shapes.push({
-      id: id,
-      shape: shape,
-      body: body
-    })
+    shapes[id] = { shape: shape, body: body }
   })
 
   ecs.on('display delta', (id, dt) => {
-    for (let shape of shapes) {
-      shape.shape.reset()
-      const a = shape.body.quaternion.toArray()
-      shape.shape.matrix(new seen.Quaternion(...a).toMatrix().m)
-      const p = shape.body.position
-      shape.shape.translate(p.x, p.y, p.z)
+    for (let s of Object.values(shapes)) {
+      s.shape.reset()
+      const a = s.body.quaternion.toArray()
+      s.shape.matrix(new seen.Quaternion(...a).toMatrix().m)
+      const p = s.body.position
+      s.shape.translate(p.x, p.y, p.z)
+    }
+  })
+
+  ecs.on('delete', (id) => {
+    if (shapes[id]) {
+      model.remove(shapes[id].shape)
+      delete shapes[id]
     }
   })
 
   ecs.on('start', () => {
-    context = seen.Context('root')
+    const context = seen.Context('root')
     context.sceneLayer(scene)
-
-    animator = context.animate()
+    const animator = context.animate()
     animator.onBefore((t, dt) => {
       ecs.emit('event delta', null, dt)
       ecs.emit('physics delta', null, dt)
@@ -18634,11 +18633,24 @@ require('./display')
 
 for (let pod of inject.many('pod')) pod()
 
+
+
+ecs.on('load', () => {
+  const create = () => {
+    const id = ecs.id()
+    ecs.emit('create sphere', id)
+    setTimeout(() => ecs.emit('delete', id), 5000)
+  }
+  setInterval(create, 10000)
+  create()
+})
+
+
 ecs.emitAsync('init')
   .then(() => ecs.emitAsync('load'))
   .then(() => ecs.emitAsync('start'))
 
-},{"./ecs":6,"./physics":7,"./display":8,"injectinto":12}],0:[function(require,module,exports) {
+},{"injectinto":12,"./ecs":6,"./physics":7,"./display":8}],0:[function(require,module,exports) {
 var global = (1, eval)('this');
 var OldModule = module.bundle.Module;
 function Module() {

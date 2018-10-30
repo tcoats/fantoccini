@@ -12,8 +12,7 @@ module.exports = () => {
   const res = {
     id: () => {
       if (free.length > 0) return free.pop()
-      counter++
-      return counter
+      return ++counter
     },
     on: (e, fn) => {
       if (!listeners[e]) listeners[e] = []
@@ -21,17 +20,11 @@ module.exports = () => {
     },
     emit: (e, id, ...args) => {
       if (!listeners[e]) return
-      for (let listener of listeners[e])
-        listener(id, ...args)
+      for (let listener of listeners[e]) listener(id, ...args)
     },
     emitAsync: (e, id, ...args) =>
       Promise.all(!listeners[e] ? [] :
-        listeners[e].map((listener) => listener(id, ...args))),
-    call: (e, id, ...args) => {
-      if (!listeners[e]) return
-      for (let listener of listeners[e])
-        return listener(id, ...args)
-    }
+        listeners[e].map((listener) => listener(id, ...args)))
   }
   return res
 }

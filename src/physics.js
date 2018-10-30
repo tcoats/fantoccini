@@ -4,10 +4,10 @@ inject('pod', () => {
   const cannon = require('cannon')
 
   let world = null
-  let sphereBody = null
-  let sphereBodyId = null
   let groundBody = null
   let groundShape = null
+
+  const bodies = {}
 
   ecs.on('init', () => {
     world = new cannon.World()
@@ -17,10 +17,17 @@ inject('pod', () => {
     world.gravity.set(0, 0, -9.82)
     world.allowSleep = true
     world.broadphase = new cannon.SAPBroadphase(world)
+  })
 
-    // Create a sphere
-    sphereBodyId = ecs.id()
-    sphereBody = new cannon.Body({
+  ecs.on('load', () => {
+    groundBody = new cannon.Body({ mass: 0 })
+    groundShape = new cannon.Plane()
+    groundBody.addShape(groundShape)
+    world.addBody(groundBody)
+  })
+
+  ecs.on('create sphere', (id) => {
+    const sphereBody = new cannon.Body({
       mass: 5,
       friction: 0.1,
       restitution: 0.3,
@@ -31,16 +38,16 @@ inject('pod', () => {
       shape: new cannon.Sphere(1)
     })
     world.addBody(sphereBody)
-
-    // Create a plane
-    groundBody = new cannon.Body({ mass: 0 })
-    groundShape = new cannon.Plane()
-    groundBody.addShape(groundShape)
-    world.addBody(groundBody)
+    sphereBody._id = id
+    bodies[id] = sphereBody
+    ecs.emit('new sphere body', sphereBody._id, sphereBody)
   })
 
-  ecs.on('load', () => {
-    ecs.emit('new sphere body', sphereBodyId, sphereBody)
+  ecs.on('delete', (id) => {
+    if (bodies[id]) {
+      world.removeBody(bodies[id])
+      delete bodies[id]
+    }
   })
 
   ecs.on('physics delta', (id, dt) => {
