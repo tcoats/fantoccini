@@ -1,0 +1,14 @@
+{
+  "name": "fantoccini",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "debug": "parcel index.html"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "cannon": "^0.6.2",
+    "injectinto": "^1.6.0",
+    "seen": "^0.2.7"
+  }
+}
