@@ -38,12 +38,19 @@ inject('pod', () => {
   })
 
   ecs.on('new sphere body', (id, body) => {
-    const shape = seen.Shapes.sphere(2)
+    const shape = seen.Shapes.sphere(1)
     shape._id = id
     shape.scale(canvas.height * 0.4)
     shape.bake()
     model.add(shape)
     shapes[id] = { shape: shape, body: body }
+  })
+
+  ecs.on('delete', (id) => {
+    if (shapes[id]) {
+      model.remove(shapes[id].shape)
+      delete shapes[id]
+    }
   })
 
   ecs.on('display delta', (id, dt) => {
@@ -53,13 +60,6 @@ inject('pod', () => {
       s.shape.matrix(new seen.Quaternion(...a).toMatrix().m)
       const p = s.body.position
       s.shape.translate(p.x, p.y, p.z)
-    }
-  })
-
-  ecs.on('delete', (id) => {
-    if (shapes[id]) {
-      model.remove(shapes[id].shape)
-      delete shapes[id]
     }
   })
 

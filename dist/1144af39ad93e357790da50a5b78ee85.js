@@ -187,7 +187,7 @@ module.exports = () => {
       if (!listeners[e]) return
       for (let listener of listeners[e]) listener(id, ...args)
     },
-    emitAsync: (e, id, ...args) =>
+    call: (e, id, ...args) =>
       Promise.all(!listeners[e] ? [] :
         listeners[e].map((listener) => listener(id, ...args)))
   }
@@ -13903,9 +13903,7 @@ inject('pod', () => {
     world.gravity.set(0, 0, -9.82)
     world.allowSleep = true
     world.broadphase = new cannon.SAPBroadphase(world)
-  })
 
-  ecs.on('load', () => {
     groundBody = new cannon.Body({ mass: 0 })
     groundShape = new cannon.Plane()
     groundBody.addShape(groundShape)
@@ -18580,12 +18578,19 @@ inject('pod', () => {
   })
 
   ecs.on('new sphere body', (id, body) => {
-    const shape = seen.Shapes.sphere(2)
+    const shape = seen.Shapes.sphere(1)
     shape._id = id
     shape.scale(canvas.height * 0.4)
     shape.bake()
     model.add(shape)
     shapes[id] = { shape: shape, body: body }
+  })
+
+  ecs.on('delete', (id) => {
+    if (shapes[id]) {
+      model.remove(shapes[id].shape)
+      delete shapes[id]
+    }
   })
 
   ecs.on('display delta', (id, dt) => {
@@ -18595,13 +18600,6 @@ inject('pod', () => {
       s.shape.matrix(new seen.Quaternion(...a).toMatrix().m)
       const p = s.body.position
       s.shape.translate(p.x, p.y, p.z)
-    }
-  })
-
-  ecs.on('delete', (id) => {
-    if (shapes[id]) {
-      model.remove(shapes[id].shape)
-      delete shapes[id]
     }
   })
 
@@ -18620,11 +18618,7 @@ inject('pod', () => {
 
 },{"injectinto":12,"seen":15}],4:[function(require,module,exports) {
 const inject = require('injectinto')
-if (inject.oneornone('ecs')) {
-  location.reload(true)
-  return
-}
-
+if (inject.oneornone('ecs')) return location.reload(true)
 const ecs = require('./ecs')()
 inject('ecs', ecs)
 
@@ -18632,8 +18626,6 @@ require('./physics')
 require('./display')
 
 for (let pod of inject.many('pod')) pod()
-
-
 
 ecs.on('load', () => {
   const create = () => {
@@ -18645,10 +18637,9 @@ ecs.on('load', () => {
   create()
 })
 
-
-ecs.emitAsync('init')
-  .then(() => ecs.emitAsync('load'))
-  .then(() => ecs.emitAsync('start'))
+ecs.call('init')
+  .then(() => ecs.call('load'))
+  .then(() => ecs.call('start'))
 
 },{"injectinto":12,"./ecs":6,"./physics":7,"./display":8}],0:[function(require,module,exports) {
 var global = (1, eval)('this');

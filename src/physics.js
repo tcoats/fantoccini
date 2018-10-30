@@ -17,9 +17,7 @@ inject('pod', () => {
     world.gravity.set(0, 0, -9.82)
     world.allowSleep = true
     world.broadphase = new cannon.SAPBroadphase(world)
-  })
 
-  ecs.on('load', () => {
     groundBody = new cannon.Body({ mass: 0 })
     groundShape = new cannon.Plane()
     groundBody.addShape(groundShape)

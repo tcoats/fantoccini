@@ -22,7 +22,7 @@ module.exports = () => {
       if (!listeners[e]) return
       for (let listener of listeners[e]) listener(id, ...args)
     },
-    emitAsync: (e, id, ...args) =>
+    call: (e, id, ...args) =>
       Promise.all(!listeners[e] ? [] :
         listeners[e].map((listener) => listener(id, ...args)))
   }

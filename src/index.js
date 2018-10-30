@@ -1,9 +1,5 @@
 const inject = require('injectinto')
-if (inject.oneornone('ecs')) {
-  location.reload(true)
-  return
-}
-
+if (inject.oneornone('ecs')) return location.reload(true)
 const ecs = require('./ecs')()
 inject('ecs', ecs)
 
@@ -11,8 +7,6 @@ require('./physics')
 require('./display')
 
 for (let pod of inject.many('pod')) pod()
-
-
 
 ecs.on('load', () => {
   const create = () => {
@@ -24,7 +18,6 @@ ecs.on('load', () => {
   create()
 })
 
-
-ecs.emitAsync('init')
-  .then(() => ecs.emitAsync('load'))
-  .then(() => ecs.emitAsync('start'))
+ecs.call('init')
+  .then(() => ecs.call('load'))
+  .then(() => ecs.call('start'))
