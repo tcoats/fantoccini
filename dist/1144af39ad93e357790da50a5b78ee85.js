@@ -65,7 +65,7 @@ require = (function (modules, cache, entry) {
 
   // Override the current require with this new one
   return newRequire;
-})({12:[function(require,module,exports) {
+})({6:[function(require,module,exports) {
 const inject = () => {
   let bindings = {}
   return {
@@ -162,7 +162,7 @@ module.exports.many = (key) => _inject.many(key)
 module.exports.clear = (key) => _inject.clear(key)
 module.exports.clearAll = () => _inject.clearAll()
 
-},{}],6:[function(require,module,exports) {
+},{}],3:[function(require,module,exports) {
 module.exports = () => {
   const free = []
   let counter = 0
@@ -194,7 +194,7 @@ module.exports = () => {
   return res
 }
 
-},{}],14:[function(require,module,exports) {
+},{}],7:[function(require,module,exports) {
 var global = (1,eval)("this");
 /*
  * Copyright (c) 2015 cannon.js Authors
@@ -13883,7 +13883,10 @@ World.prototype.clearForces = function(){
 },{"../collision/AABB":3,"../collision/ArrayCollisionMatrix":4,"../collision/NaiveBroadphase":7,"../collision/Ray":9,"../collision/RaycastResult":10,"../equations/ContactEquation":19,"../equations/FrictionEquation":21,"../material/ContactMaterial":24,"../material/Material":25,"../math/Quaternion":28,"../math/Vec3":30,"../objects/Body":31,"../shapes/Shape":43,"../solver/GSSolver":46,"../utils/EventTarget":49,"../utils/TupleDictionary":52,"../utils/Vec3Pool":54,"./Narrowphase":55}]},{},[2])
 (2)
 });
-},{}],7:[function(require,module,exports) {
+},{}],4:[function(require,module,exports) {
+// http://schteppe.github.io/cannon.js/
+// http://schteppe.github.io/cannon.js/docs/
+
 const inject = require('injectinto')
 inject('pod', () => {
   const ecs = inject.one('ecs')
@@ -13918,7 +13921,8 @@ inject('pod', () => {
       sleepSpeedLimit: 0.01,
       sleepTimeLimit: 1.0,
       position: new cannon.Vec3(0, 0, 10),
-      angularVelocity: new cannon.Vec3(0, 0, 1),
+      velocity: new cannon.Vec3(0, 0, 0),
+      angularVelocity: new cannon.Vec3(0, 0, 0),
       shape: new cannon.Sphere(1)
     })
     world.addBody(sphereBody)
@@ -13939,7 +13943,7 @@ inject('pod', () => {
   })
 })
 
-},{"injectinto":12,"cannon":14}],15:[function(require,module,exports) {
+},{"injectinto":6,"cannon":7}],8:[function(require,module,exports) {
 /** seen.js v0.2.7 | themadcreator.github.io/seen | (c) Bill Dwyer | @license: Apache 2.0 */
 
 (function(){
@@ -18537,7 +18541,10 @@ seen.Simplex3D = (function() {
 })();
 
 })(this);
-},{}],8:[function(require,module,exports) {
+},{}],5:[function(require,module,exports) {
+// http://seenjs.io
+// http://seenjs.io/docco/seen.html
+
 const inject = require('injectinto')
 inject('pod', () => {
   const ecs = inject.one('ecs')
@@ -18546,7 +18553,9 @@ inject('pod', () => {
   let canvas = null
   let model = null
   let projection = null
+  let viewport = null
   let scene = null
+  let proj
   const shapes = {}
 
   ecs.on('init', () => {
@@ -18567,20 +18576,34 @@ inject('pod', () => {
       intensity: 0.0015
     }))
 
-    projection = seen.Projections.perspective(-1, 1, -1, 1)
+    projection = seen.Projections.perspectiveFov(60)
 
+    zoom = 12
+    proj = seen.M()
+    viewport = {
+      prescale: null,
+      postscale: seen.M()
+        .scale(zoom * 16, zoom * -9, zoom * 9)
+        .translate(canvas.width/2, canvas.height/2, 9)
+    }
     scene = new seen.Scene({
       model: model,
-      viewport: seen.Viewports.center(canvas.width, canvas.height),
+      viewport: viewport,
       camera: new seen.Camera({ projection: projection }),
       fractionalPoints: true
+    })
+
+    dragger = new seen.Drag('root', { inertia : true })
+    dragger.on('drag.rotate', (e) => {
+      xform = seen.Quaternion.xyToTransform(...e.offsetRelative)
+      proj.multiply(xform)
     })
   })
 
   ecs.on('new sphere body', (id, body) => {
     const shape = seen.Shapes.sphere(1)
     shape._id = id
-    shape.scale(canvas.height * 0.4)
+    shape.scale(1)
     shape.bake()
     model.add(shape)
     shapes[id] = { shape: shape, body: body }
@@ -18594,6 +18617,9 @@ inject('pod', () => {
   })
 
   ecs.on('display delta', (id, dt) => {
+    viewport.prescale = proj.copy()
+      .translate(0, 0, -11)
+      .scale(9, 16, 3)
     for (let s of Object.values(shapes)) {
       s.shape.reset()
       const a = s.body.quaternion.toArray()
@@ -18616,7 +18642,7 @@ inject('pod', () => {
   })
 })
 
-},{"injectinto":12,"seen":15}],4:[function(require,module,exports) {
+},{"injectinto":6,"seen":8}],2:[function(require,module,exports) {
 const inject = require('injectinto')
 if (inject.oneornone('ecs')) return location.reload(true)
 const ecs = require('./ecs')()
@@ -18628,20 +18654,15 @@ require('./display')
 for (let pod of inject.many('pod')) pod()
 
 ecs.on('load', () => {
-  const create = () => {
-    const id = ecs.id()
-    ecs.emit('create sphere', id)
-    setTimeout(() => ecs.emit('delete', id), 5000)
-  }
-  setInterval(create, 10000)
-  create()
+  const id = ecs.id()
+  ecs.emit('create sphere', id)
 })
 
 ecs.call('init')
   .then(() => ecs.call('load'))
   .then(() => ecs.call('start'))
 
-},{"injectinto":12,"./ecs":6,"./physics":7,"./display":8}],0:[function(require,module,exports) {
+},{"injectinto":6,"./ecs":3,"./physics":4,"./display":5}],0:[function(require,module,exports) {
 var global = (1, eval)('this');
 var OldModule = module.bundle.Module;
 function Module() {
@@ -18659,7 +18680,7 @@ function Module() {
 module.bundle.Module = Module;
 
 if (!module.bundle.parent) {
-  var ws = new WebSocket('ws://localhost:53353/');
+  var ws = new WebSocket('ws://localhost:58307/');
   ws.onmessage = function(event) {
     var data = JSON.parse(event.data);
 
@@ -18757,4 +18778,4 @@ function hmrAccept(bundle, id) {
     return hmrAccept(global.require, id)
   });
 }
-},{}]},{},[0,4])
+},{}]},{},[0,2])

@@ -1,3 +1,6 @@
+// http://schteppe.github.io/cannon.js/
+// http://schteppe.github.io/cannon.js/docs/
+
 const inject = require('injectinto')
 inject('pod', () => {
   const ecs = inject.one('ecs')
@@ -32,7 +35,8 @@ inject('pod', () => {
       sleepSpeedLimit: 0.01,
       sleepTimeLimit: 1.0,
       position: new cannon.Vec3(0, 0, 10),
-      angularVelocity: new cannon.Vec3(0, 0, 1),
+      velocity: new cannon.Vec3(0, 0, 0),
+      angularVelocity: new cannon.Vec3(0, 0, 0),
       shape: new cannon.Sphere(1)
     })
     world.addBody(sphereBody)
