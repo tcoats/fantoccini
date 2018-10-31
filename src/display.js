@@ -11,8 +11,29 @@ inject('pod', () => {
   let projection = null
   let viewport = null
   let scene = null
-  let proj
+  let cameraOrientation = seen.M()
+  let cameraPosition = seen.P(0, -5, 12)
   const shapes = {}
+
+  const lookat = (target) => {
+    const up = seen.P(0, 1, 0)
+    const z = cameraPosition.copy().subtract(target).normalize()
+    const x = up.cross(z).normalize()
+    const y = z.copy().cross(x)
+    cameraOrientation = seen.M()
+    cameraOrientation.m[0] = x.x
+    cameraOrientation.m[1] = y.x
+    cameraOrientation.m[2] = z.x
+
+    cameraOrientation.m[4] = x.y
+    cameraOrientation.m[5] = y.y
+    cameraOrientation.m[6] = z.y
+
+    cameraOrientation.m[8] = x.z
+    cameraOrientation.m[9] = y.z
+    cameraOrientation.m[10] = z.z
+  }
+  lookat(seen.P(0, 0, 0))
 
   ecs.on('init', () => {
     canvas = document.getElementById('root')
@@ -34,13 +55,12 @@ inject('pod', () => {
 
     projection = seen.Projections.perspectiveFov(60)
 
-    zoom = 12
-    proj = seen.M()
+    zoom = 200
     viewport = {
       prescale: null,
       postscale: seen.M()
-        .scale(zoom * 16, zoom * -9, zoom * 9)
-        .translate(canvas.width/2, canvas.height/2, 9)
+        .scale(zoom, -zoom, zoom)
+        .translate(canvas.width / 2, canvas.height / 2, 0)
     }
     scene = new seen.Scene({
       model: model,
@@ -49,10 +69,10 @@ inject('pod', () => {
       fractionalPoints: true
     })
 
-    dragger = new seen.Drag('root', { inertia : true })
+    dragger = new seen.Drag('root')
     dragger.on('drag.rotate', (e) => {
-      xform = seen.Quaternion.xyToTransform(...e.offsetRelative)
-      proj.multiply(xform)
+      cameraOrientation.multiply(
+        seen.Quaternion.xyToTransform(...e.offsetRelative))
     })
   })
 
@@ -73,9 +93,8 @@ inject('pod', () => {
   })
 
   ecs.on('display delta', (id, dt) => {
-    viewport.prescale = proj.copy()
-      .translate(0, 0, -11)
-      .scale(9, 16, 3)
+    const { x, y, z } = cameraPosition.copy().multiply(-1)
+    viewport.prescale = cameraOrientation.copy().translate(x, y, z)
     for (let s of Object.values(shapes)) {
       s.shape.reset()
       const a = s.body.quaternion.toArray()
