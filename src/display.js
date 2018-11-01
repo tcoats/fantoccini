@@ -5,38 +5,49 @@ const inject = require('injectinto')
 inject('pod', () => {
   const ecs = inject.one('ecs')
   const seen = require('seen')
+  seen.Q = (...args) => new seen.Quaternion(...args)
+  seen.Quaternion.prototype.multiply = function(q) {
+    this.q = seen.P(
+      this.q.w * q.q.x + this.q.x * q.q.w
+      + this.q.y * q.q.z - this.q.z * q.q.y,
+      this.q.w * q.q.y + this.q.y * q.q.w
+      + this.q.z * q.q.x - this.q.x * q.q.z,
+      this.q.w * q.q.z + this.q.z * q.q.w
+      + this.q.x * q.q.y - this.q.y * q.q.x,
+      this.q.w * q.q.w - this.q.x * q.q.x
+      - this.q.y * q.q.y - this.q.z * q.q.z)
+    return this
+  }
 
-  let canvas = null
   let model = null
-  let projection = null
-  let viewport = null
   let scene = null
-  let cameraOrientation = seen.M()
-  let cameraPosition = seen.P(0, -5, 12)
+  let camera = null
+  let cameraOrientation = seen.Q(-0.4893291878182305, -0.5363491731998858, -0.4716018208232713, 0.5004780044647168)
+  let cameraPosition = seen.P(12, 0, 0)
   const shapes = {}
 
-  const lookat = (target) => {
-    const up = seen.P(0, 1, 0)
-    const z = cameraPosition.copy().subtract(target).normalize()
-    const x = up.cross(z).normalize()
-    const y = z.copy().cross(x)
-    cameraOrientation = seen.M()
-    cameraOrientation.m[0] = x.x
-    cameraOrientation.m[1] = y.x
-    cameraOrientation.m[2] = z.x
+  // const lookat = (target) => {
+  //   const up = seen.P(0, 1, 0)
+  //   const z = cameraPosition.copy().subtract(target).normalize()
+  //   const x = up.cross(z).normalize()
+  //   const y = z.copy().cross(x)
+  //   cameraOrientation = seen.M()
+  //   cameraOrientation.m[0] = x.x
+  //   cameraOrientation.m[1] = y.x
+  //   cameraOrientation.m[2] = z.x
 
-    cameraOrientation.m[4] = x.y
-    cameraOrientation.m[5] = y.y
-    cameraOrientation.m[6] = z.y
+  //   cameraOrientation.m[4] = x.y
+  //   cameraOrientation.m[5] = y.y
+  //   cameraOrientation.m[6] = z.y
 
-    cameraOrientation.m[8] = x.z
-    cameraOrientation.m[9] = y.z
-    cameraOrientation.m[10] = z.z
-  }
-  lookat(seen.P(0, 0, 0))
+  //   cameraOrientation.m[8] = x.z
+  //   cameraOrientation.m[9] = y.z
+  //   cameraOrientation.m[10] = z.z
+  // }
+  // lookat(seen.P(0, 0, 0))
 
   ecs.on('init', () => {
-    canvas = document.getElementById('root')
+    const canvas = document.getElementById('root')
 
     model = new seen.Model()
     model._id = ecs.id()
@@ -53,27 +64,21 @@ inject('pod', () => {
       intensity: 0.0015
     }))
 
-    projection = seen.Projections.perspectiveFov(60)
-
-    zoom = 200
-    viewport = {
-      prescale: null,
-      postscale: seen.M()
-        .scale(zoom, -zoom, zoom)
-        .translate(canvas.width / 2, canvas.height / 2, 0)
-    }
+    camera = new seen.Camera({ projection: seen.Projections.perspectiveFov(60) })
     scene = new seen.Scene({
       model: model,
-      viewport: viewport,
-      camera: new seen.Camera({ projection: projection }),
+      viewport: {
+        prescale: seen.M(),
+        postscale: seen.M()
+          .scale(300, 300, 300)
+          .translate(canvas.width / 2, canvas.height / 2, 0)
+      },
+      camera: camera,
       fractionalPoints: true
     })
 
-    dragger = new seen.Drag('root')
-    dragger.on('drag.rotate', (e) => {
-      cameraOrientation.multiply(
-        seen.Quaternion.xyToTransform(...e.offsetRelative))
-    })
+    ecs.emit('camera orientation', null, cameraOrientation)
+    ecs.emit('camera position', null, cameraPosition)
   })
 
   ecs.on('new sphere body', (id, body) => {
@@ -92,13 +97,18 @@ inject('pod', () => {
     }
   })
 
+  let frame = 0
   ecs.on('display delta', (id, dt) => {
-    const { x, y, z } = cameraPosition.copy().multiply(-1)
-    viewport.prescale = cameraOrientation.copy().translate(x, y, z)
+    frame++
+    if (frame % 60 == 0) console.log(`(${cameraPosition.x.toFixed(2)}, ${cameraPosition.y.toFixed(2)}, ${cameraPosition.z.toFixed(2)}) (${cameraOrientation.q.x.toFixed(2)}, ${cameraOrientation.q.y.toFixed(2)}, ${cameraOrientation.q.z.toFixed(2)}, ${cameraOrientation.q.w.toFixed(2)})`)
+    camera.reset()
+    const translation = cameraPosition.copy().multiply(-1)
+    camera.translate(translation.x, translation.y, translation.z)
+    camera.transform(cameraOrientation.toMatrix())
     for (let s of Object.values(shapes)) {
       s.shape.reset()
       const a = s.body.quaternion.toArray()
-      s.shape.matrix(new seen.Quaternion(...a).toMatrix().m)
+      s.shape.matrix(seen.Q(...a).toMatrix().m)
       const p = s.body.position
       s.shape.translate(p.x, p.y, p.z)
     }

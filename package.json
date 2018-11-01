@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "debug": "parcel index.html"
+    "start": "parcel index.html"
   },
   "license": "MIT",
   "dependencies": {

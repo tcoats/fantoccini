@@ -65,7 +65,39 @@ require = (function (modules, cache, entry) {
 
   // Override the current require with this new one
   return newRequire;
-})({6:[function(require,module,exports) {
+})({3:[function(require,module,exports) {
+module.exports = () => {
+  const free = []
+  let counter = 0
+  const listeners = {
+    'delete': [
+      (id) => {
+        free.push(id)
+        res.emit('deleted', id)
+      }
+    ]
+  }
+  const res = {
+    id: () => {
+      if (free.length > 0) return free.pop()
+      return ++counter
+    },
+    on: (e, fn) => {
+      if (!listeners[e]) listeners[e] = []
+      listeners[e].push(fn)
+    },
+    emit: (e, id, ...args) => {
+      if (!listeners[e]) return
+      for (let listener of listeners[e]) listener(id, ...args)
+    },
+    call: (e, id, ...args) =>
+      Promise.all(!listeners[e] ? [] :
+        listeners[e].map((listener) => listener(id, ...args)))
+  }
+  return res
+}
+
+},{}],7:[function(require,module,exports) {
 const inject = () => {
   let bindings = {}
   return {
@@ -162,39 +194,7 @@ module.exports.many = (key) => _inject.many(key)
 module.exports.clear = (key) => _inject.clear(key)
 module.exports.clearAll = () => _inject.clearAll()
 
-},{}],3:[function(require,module,exports) {
-module.exports = () => {
-  const free = []
-  let counter = 0
-  const listeners = {
-    'delete': [
-      (id) => {
-        free.push(id)
-        res.emit('deleted', id)
-      }
-    ]
-  }
-  const res = {
-    id: () => {
-      if (free.length > 0) return free.pop()
-      return ++counter
-    },
-    on: (e, fn) => {
-      if (!listeners[e]) listeners[e] = []
-      listeners[e].push(fn)
-    },
-    emit: (e, id, ...args) => {
-      if (!listeners[e]) return
-      for (let listener of listeners[e]) listener(id, ...args)
-    },
-    call: (e, id, ...args) =>
-      Promise.all(!listeners[e] ? [] :
-        listeners[e].map((listener) => listener(id, ...args)))
-  }
-  return res
-}
-
-},{}],7:[function(require,module,exports) {
+},{}],8:[function(require,module,exports) {
 var global = (1,eval)("this");
 /*
  * Copyright (c) 2015 cannon.js Authors
@@ -13943,7 +13943,7 @@ inject('pod', () => {
   })
 })
 
-},{"injectinto":6,"cannon":7}],8:[function(require,module,exports) {
+},{"injectinto":7,"cannon":8}],9:[function(require,module,exports) {
 /** seen.js v0.2.7 | themadcreator.github.io/seen | (c) Bill Dwyer | @license: Apache 2.0 */
 
 (function(){
@@ -18549,38 +18549,49 @@ const inject = require('injectinto')
 inject('pod', () => {
   const ecs = inject.one('ecs')
   const seen = require('seen')
+  seen.Q = (...args) => new seen.Quaternion(...args)
+  seen.Quaternion.prototype.multiply = function(q) {
+    this.q = seen.P(
+      this.q.w * q.q.x + this.q.x * q.q.w
+      + this.q.y * q.q.z - this.q.z * q.q.y,
+      this.q.w * q.q.y + this.q.y * q.q.w
+      + this.q.z * q.q.x - this.q.x * q.q.z,
+      this.q.w * q.q.z + this.q.z * q.q.w
+      + this.q.x * q.q.y - this.q.y * q.q.x,
+      this.q.w * q.q.w - this.q.x * q.q.x
+      - this.q.y * q.q.y - this.q.z * q.q.z)
+    return this
+  }
 
-  let canvas = null
   let model = null
-  let projection = null
-  let viewport = null
   let scene = null
-  let cameraOrientation = seen.M()
-  let cameraPosition = seen.P(0, -5, 12)
+  let camera = null
+  let cameraOrientation = seen.Q(-0.4893291878182305, -0.5363491731998858, -0.4716018208232713, 0.5004780044647168)
+  let cameraPosition = seen.P(12, 0, 0)
   const shapes = {}
 
-  const lookat = (target) => {
-    const up = seen.P(0, 1, 0)
-    const z = cameraPosition.copy().subtract(target).normalize()
-    const x = up.cross(z).normalize()
-    const y = z.copy().cross(x)
-    cameraOrientation = seen.M()
-    cameraOrientation.m[0] = x.x
-    cameraOrientation.m[1] = y.x
-    cameraOrientation.m[2] = z.x
+  // const lookat = (target) => {
+  //   const up = seen.P(0, 1, 0)
+  //   const z = cameraPosition.copy().subtract(target).normalize()
+  //   const x = up.cross(z).normalize()
+  //   const y = z.copy().cross(x)
+  //   cameraOrientation = seen.M()
+  //   cameraOrientation.m[0] = x.x
+  //   cameraOrientation.m[1] = y.x
+  //   cameraOrientation.m[2] = z.x
 
-    cameraOrientation.m[4] = x.y
-    cameraOrientation.m[5] = y.y
-    cameraOrientation.m[6] = z.y
+  //   cameraOrientation.m[4] = x.y
+  //   cameraOrientation.m[5] = y.y
+  //   cameraOrientation.m[6] = z.y
 
-    cameraOrientation.m[8] = x.z
-    cameraOrientation.m[9] = y.z
-    cameraOrientation.m[10] = z.z
-  }
-  lookat(seen.P(0, 0, 0))
+  //   cameraOrientation.m[8] = x.z
+  //   cameraOrientation.m[9] = y.z
+  //   cameraOrientation.m[10] = z.z
+  // }
+  // lookat(seen.P(0, 0, 0))
 
   ecs.on('init', () => {
-    canvas = document.getElementById('root')
+    const canvas = document.getElementById('root')
 
     model = new seen.Model()
     model._id = ecs.id()
@@ -18597,27 +18608,21 @@ inject('pod', () => {
       intensity: 0.0015
     }))
 
-    projection = seen.Projections.perspectiveFov(60)
-
-    zoom = 200
-    viewport = {
-      prescale: null,
-      postscale: seen.M()
-        .scale(zoom, -zoom, zoom)
-        .translate(canvas.width / 2, canvas.height / 2, 0)
-    }
+    camera = new seen.Camera({ projection: seen.Projections.perspectiveFov(60) })
     scene = new seen.Scene({
       model: model,
-      viewport: viewport,
-      camera: new seen.Camera({ projection: projection }),
+      viewport: {
+        prescale: seen.M(),
+        postscale: seen.M()
+          .scale(300, 300, 300)
+          .translate(canvas.width / 2, canvas.height / 2, 0)
+      },
+      camera: camera,
       fractionalPoints: true
     })
 
-    dragger = new seen.Drag('root')
-    dragger.on('drag.rotate', (e) => {
-      cameraOrientation.multiply(
-        seen.Quaternion.xyToTransform(...e.offsetRelative))
-    })
+    ecs.emit('camera orientation', null, cameraOrientation)
+    ecs.emit('camera position', null, cameraPosition)
   })
 
   ecs.on('new sphere body', (id, body) => {
@@ -18636,13 +18641,18 @@ inject('pod', () => {
     }
   })
 
+  let frame = 0
   ecs.on('display delta', (id, dt) => {
-    const { x, y, z } = cameraPosition.copy().multiply(-1)
-    viewport.prescale = cameraOrientation.copy().translate(x, y, z)
+    frame++
+    if (frame % 60 == 0) console.log(`(${cameraPosition.x.toFixed(2)}, ${cameraPosition.y.toFixed(2)}, ${cameraPosition.z.toFixed(2)}) (${cameraOrientation.q.x.toFixed(2)}, ${cameraOrientation.q.y.toFixed(2)}, ${cameraOrientation.q.z.toFixed(2)}, ${cameraOrientation.q.w.toFixed(2)})`)
+    camera.reset()
+    const translation = cameraPosition.copy().multiply(-1)
+    camera.translate(translation.x, translation.y, translation.z)
+    camera.transform(cameraOrientation.toMatrix())
     for (let s of Object.values(shapes)) {
       s.shape.reset()
       const a = s.body.quaternion.toArray()
-      s.shape.matrix(new seen.Quaternion(...a).toMatrix().m)
+      s.shape.matrix(seen.Q(...a).toMatrix().m)
       const p = s.body.position
       s.shape.translate(p.x, p.y, p.z)
     }
@@ -18661,7 +18671,94 @@ inject('pod', () => {
   })
 })
 
-},{"injectinto":6,"seen":8}],2:[function(require,module,exports) {
+},{"injectinto":7,"seen":9}],6:[function(require,module,exports) {
+const inject = require('injectinto')
+inject('pod', () => {
+  const ecs = inject.one('ecs')
+  const seen = require('seen')
+
+  let cameraOrientation = null
+  let cameraPosition = null
+
+  let movementX = 0
+  let movementY = 0
+  const pressed={}
+
+  const forwardkey = 87
+  const backwardkey = 83
+  const leftkey = 65
+  const rightkey = 68
+  const upkey = 81
+  const downkey = 69
+
+  const onmove = (e) => {
+    movementX += e.movementX
+    movementY += e.movementY
+  }
+  const onkeydown = (e) => pressed[e.keyCode] = true
+  const onkeyup = (e) => delete pressed[e.keyCode]
+
+  ecs.on('init', () => {
+    canvas = document.getElementById('root')
+    canvas.onclick = (e) => canvas.requestPointerLock()
+    document.addEventListener('pointerlockchange', () => {
+      if (document.pointerLockElement === canvas) ecs.emit('pointer captured')
+      else ecs.emit('pointer released')
+    })
+  })
+
+  ecs.on('camera orientation', (id, orientation) =>
+    cameraOrientation = orientation)
+
+  ecs.on('camera position', (id, position) =>
+    cameraPosition = position)
+
+  ecs.on('pointer captured', () => {
+    document.addEventListener('mousemove', onmove)
+    document.addEventListener('keydown', onkeydown)
+    document.addEventListener('keyup', onkeyup)
+  })
+
+  ecs.on('pointer released', () => {
+    document.removeEventListener('mousemove', onmove)
+    document.removeEventListener('keydown', onkeydown)
+    document.removeEventListener('keyup', onkeyup)
+  })
+
+  const cameraSpeed = 0.02
+  let frame = 0
+
+  ecs.on('display delta', (id, dt) => {
+    frame++
+    if (cameraOrientation && cameraPosition) {
+      cameraOrientation
+        .multiply(seen.Quaternion.pointAngle(seen.Points.Y(), movementX / 150))
+        .multiply(seen.Quaternion.pointAngle(seen.Points.X(), movementY / 150))
+
+      const z = (pressed[leftkey] ? 1.0 : 0.0)
+        - (pressed[rightkey] ? 1.0 : 0.0)
+      const y = (pressed[forwardkey] ? 1.0 : 0.0)
+        - (pressed[backwardkey] ? 1.0 : 0.0)
+      const x = (pressed[upkey] ? 1.0 : 0.0)
+        - (pressed[downkey] ? 1.0 : 0.0)
+
+      cameraPosition.subtract(seen.P(1, 0, 0)
+          .transform(cameraOrientation.toMatrix())
+          .multiply(x * dt * cameraSpeed))
+      cameraPosition.subtract(seen.P(0, 1, 0)
+          .transform(cameraOrientation.toMatrix())
+          .multiply(y * dt * cameraSpeed))
+      cameraPosition.subtract(seen.P(0, 0, 1)
+          .transform(cameraOrientation.toMatrix())
+          .multiply(z * dt * cameraSpeed))
+    }
+
+    movementX = 0
+    movementY = 0
+  })
+})
+
+},{"injectinto":7,"seen":9}],2:[function(require,module,exports) {
 const inject = require('injectinto')
 if (inject.oneornone('ecs')) return location.reload(true)
 const ecs = require('./ecs')()
@@ -18669,6 +18766,7 @@ inject('ecs', ecs)
 
 require('./physics')
 require('./display')
+require('./controls')
 
 for (let pod of inject.many('pod')) pod()
 
@@ -18681,7 +18779,7 @@ ecs.call('init')
   .then(() => ecs.call('load'))
   .then(() => ecs.call('start'))
 
-},{"injectinto":6,"./ecs":3,"./physics":4,"./display":5}],0:[function(require,module,exports) {
+},{"./ecs":3,"./physics":4,"./display":5,"./controls":6,"injectinto":7}],0:[function(require,module,exports) {
 var global = (1, eval)('this');
 var OldModule = module.bundle.Module;
 function Module() {
@@ -18699,7 +18797,7 @@ function Module() {
 module.bundle.Module = Module;
 
 if (!module.bundle.parent) {
-  var ws = new WebSocket('ws://localhost:58307/');
+  var ws = new WebSocket('ws://localhost:60257/');
   ws.onmessage = function(event) {
     var data = JSON.parse(event.data);
 
