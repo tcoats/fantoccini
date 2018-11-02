@@ -3,6 +3,7 @@ inject('pod', () => {
   const ecs = inject.one('ecs')
   const THREE = require('three')
   const CANNON = require('cannon')
+  const canvas = document.getElementById('root')
 
   let player = null
 
@@ -27,6 +28,14 @@ inject('pod', () => {
   }
   const onkeydown = (e) => pressed[e.keyCode] = true
   const onkeyup = (e) => pressed[e.keyCode] = false
+
+  ecs.on('init', () => {
+    canvas.onclick = (e) => canvas.requestPointerLock()
+    document.addEventListener('pointerlockchange', () => {
+      if (document.pointerLockElement === canvas) ecs.emit('pointer captured')
+      else ecs.emit('pointer released')
+    })
+  })
 
   ecs.on('pointer captured', () => {
     document.addEventListener('mousemove', onmove)

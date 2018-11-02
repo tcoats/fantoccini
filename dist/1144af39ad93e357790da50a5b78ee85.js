@@ -65,39 +65,7 @@ require = (function (modules, cache, entry) {
 
   // Override the current require with this new one
   return newRequire;
-})({3:[function(require,module,exports) {
-module.exports = () => {
-  const free = []
-  let counter = 0
-  const listeners = {
-    'delete': [
-      (id) => {
-        free.push(id)
-        res.emit('deleted', id)
-      }
-    ]
-  }
-  const res = {
-    id: () => {
-      if (free.length > 0) return free.pop()
-      return ++counter
-    },
-    on: (e, fn) => {
-      if (!listeners[e]) listeners[e] = []
-      listeners[e].push(fn)
-    },
-    emit: (e, id, ...args) => {
-      if (!listeners[e]) return
-      for (let listener of listeners[e]) listener(id, ...args)
-    },
-    call: (e, id, ...args) =>
-      Promise.all(!listeners[e] ? [] :
-        listeners[e].map((listener) => listener(id, ...args)))
-  }
-  return res
-}
-
-},{}],7:[function(require,module,exports) {
+})({7:[function(require,module,exports) {
 const inject = () => {
   let bindings = {}
   return {
@@ -193,6 +161,38 @@ module.exports.firstornone = (key) => _inject.firstornone(key)
 module.exports.many = (key) => _inject.many(key)
 module.exports.clear = (key) => _inject.clear(key)
 module.exports.clearAll = () => _inject.clearAll()
+
+},{}],3:[function(require,module,exports) {
+module.exports = () => {
+  const free = []
+  let counter = 0
+  const listeners = {
+    'delete': [
+      (id) => {
+        free.push(id)
+        res.emit('deleted', id)
+      }
+    ]
+  }
+  const res = {
+    id: () => {
+      if (free.length > 0) return free.pop()
+      return ++counter
+    },
+    on: (e, fn) => {
+      if (!listeners[e]) listeners[e] = []
+      listeners[e].push(fn)
+    },
+    emit: (e, id, ...args) => {
+      if (!listeners[e]) return
+      for (let listener of listeners[e]) listener(id, ...args)
+    },
+    call: (e, id, ...args) =>
+      Promise.all(!listeners[e] ? [] :
+        listeners[e].map((listener) => listener(id, ...args)))
+  }
+  return res
+}
 
 },{}],8:[function(require,module,exports) {
 var global = (1,eval)("this");
@@ -62207,18 +62207,12 @@ inject('pod', () => {
   const THREE = require('three')
   const CANNON = require('cannon')
   const canvas = document.getElementById('root')
-  let player, world, walls=[], boxes=[], boxMeshes=[]
+  let player, world, boxes=[], boxMeshes=[]
   let camera, scene, renderer
   let geometry, material, mesh
   let element = document.body
 
   ecs.on('init', () => {
-    canvas.onclick = (e) => canvas.requestPointerLock()
-    document.addEventListener('pointerlockchange', () => {
-      if (document.pointerLockElement === canvas) ecs.emit('pointer captured')
-      else ecs.emit('pointer released')
-    })
-
     world = new CANNON.World()
     world.quatNormalizeSkip = 0
     world.quatNormalizeFast = false
@@ -62240,19 +62234,15 @@ inject('pod', () => {
     // world.broadphase = new CANNON.SAPBroadphase(world)
 
     const physicsMaterial = new CANNON.Material('slipperyMaterial')
-    // We must add the contact materials to the world
     world.addContactMaterial(
       new CANNON.ContactMaterial(physicsMaterial, physicsMaterial, 0.0, 0.3))
-    // Create a sphere
-    const mass = 5
-    const radius = 1.3
-    // Create a plane
+
     const groundShape = new CANNON.Plane()
     const groundBody = new CANNON.Body({ mass: 0 })
     groundBody.addShape(groundShape)
-    groundBody.quaternion.setFromAxisAngle(new CANNON.Vec3(1,0,0),-Math.PI/2)
+    groundBody.quaternion.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), -Math.PI / 2)
     world.addBody(groundBody)
-    camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000)
+    camera = new THREE.PerspectiveCamera(75, canvas.width / canvas.height, 0.1, 1000)
     scene = new THREE.Scene()
     scene.fog = new THREE.Fog(0x000000, 0, 500)
     const ambient = new THREE.AmbientLight(0x111111)
@@ -62266,17 +62256,16 @@ inject('pod', () => {
     light.shadow.camera.fov = 40
     light.shadowMapBias = 0.1
     light.shadowMapDarkness = 0.7
-    light.shadow.mapSize.width = 2*512
-    light.shadow.mapSize.height = 2*512
+    light.shadow.mapSize.width = 2 * 512
+    light.shadow.mapSize.height = 2 * 512
     scene.add(light)
 
-
     player = {}
-    player.shape = new CANNON.Sphere(radius)
-    player.physics = new CANNON.Body({ mass: mass })
+    player.shape = new CANNON.Sphere(1.3)
+    player.physics = new CANNON.Body({ mass: 5 })
     player.physics.addShape(player.shape)
-    player.physics.position.set(0,5,0)
-    player.physics.linearDamping = 0.9
+    player.physics.position.set(0, 5, 0)
+    // player.physics.linearDamping = 0.9
     world.addBody(player.physics)
 
     player.body = new THREE.Object3D()
@@ -62287,7 +62276,6 @@ inject('pod', () => {
     player.body.add(player.head)
     ecs.emit('player', null, player)
 
-
     geometry = new THREE.PlaneGeometry(300, 300, 50, 50)
     geometry.applyMatrix(new THREE.Matrix4().makeRotationX(-Math.PI / 2))
     material = new THREE.MeshLambertMaterial({ color: 0xdddddd })
@@ -62295,15 +62283,16 @@ inject('pod', () => {
     mesh.castShadow = true
     mesh.receiveShadow = true
     scene.add(mesh)
+
     renderer = new THREE.WebGLRenderer({ canvas: canvas })
     renderer.shadowMap.enabled = true
     renderer.shadowMapSoft = true
     renderer.setSize(645, 405)
     renderer.setClearColor(scene.fog.color, 1)
-    const halfExtents = new CANNON.Vec3(1,1,1)
+    const halfExtents = new CANNON.Vec3(1, 1, 1)
     const boxShape = new CANNON.Box(halfExtents)
-    const boxGeometry = new THREE.BoxGeometry(halfExtents.x*2,halfExtents.y*2,halfExtents.z*2)
-    for (var i = 0; i < 7; i++){
+    const boxGeometry = new THREE.BoxGeometry(halfExtents.x * 2, halfExtents.y * 2, halfExtents.z * 2)
+    for (let i = 0; i < 7; i++) {
       const x = (Math.random()-0.5)*20
       const y = 1 + (Math.random()-0.5)*1
       const z = (Math.random()-0.5)*20
@@ -62312,35 +62301,13 @@ inject('pod', () => {
       const boxMesh = new THREE.Mesh(boxGeometry, material)
       world.addBody(boxBody)
       scene.add(boxMesh)
-      boxBody.position.set(x,y,z)
-      boxMesh.position.set(x,y,z)
+      boxBody.position.set(x, y, z)
+      boxMesh.position.set(x, y, z)
       boxMesh.castShadow = true
       boxMesh.receiveShadow = true
       boxes.push(boxBody)
       boxMeshes.push(boxMesh)
     }
-    let time = Date.now()
-    function animate() {
-      const current = Date.now()
-      const dt = current - time
-      requestAnimationFrame(animate)
-      ecs.emit('event delta', null, dt)
-      world.step(1.0 / 60.0, dt / 1000, 3)
-      // Update box positions
-      for (let i = 0; i < boxes.length; i++) {
-        boxMeshes[i].position.copy(boxes[i].position)
-        boxMeshes[i].quaternion.copy(boxes[i].quaternion)
-      }
-      //ecs.emit('physics delta', null, dt)
-      renderer.render(scene, camera)
-      // ecs.emit('display delta', null, dt)
-      time = current
-    }
-    animate()
-
-
-    // ecs.emit('camera orientation', null, cameraOrientation)
-    // ecs.emit('camera position', null, cameraPosition)
   })
 
   // ecs.on('new sphere body', (id, body) => {
@@ -62359,32 +62326,15 @@ inject('pod', () => {
   //   }
   // })
 
-  let frame = 0
-  ecs.on('display delta', (id, dt) => {
-    frame++
-    // if (frame % 60 == 0) console.log(`(${cameraPosition.x.toFixed(2)}, ${cameraPosition.y.toFixed(2)}, ${cameraPosition.z.toFixed(2)}) (${cameraOrientation.q.x.toFixed(2)}, ${cameraOrientation.q.y.toFixed(2)}, ${cameraOrientation.q.z.toFixed(2)}, ${cameraOrientation.q.w.toFixed(2)})`)
-    // camera.reset()
-    // camera.translate(cameraPosition.x, cameraPosition.y, cameraPosition.z)
-    // camera.transform(cameraOrientation.toMatrix())
-    // for (let s of Object.values(shapes)) {
-    //   s.shape.reset()
-    //   const a = s.body.quaternion.toArray()
-    //   s.shape.matrix(seen.Q(...a).toMatrix().m)
-    //   const p = s.body.position
-    //   s.shape.translate(p.x, p.y, p.z)
-    // }
+  ecs.on('physics delta', (id, dt) => {
+    world.step(1.0 / 60.0, dt / 1000, 3)
+    for (let i = 0; i < boxes.length; i++) {
+      boxMeshes[i].position.copy(boxes[i].position)
+      boxMeshes[i].quaternion.copy(boxes[i].quaternion)
+    }
   })
-
-  ecs.on('start', () => {
-    // const context = seen.Context('root')
-    // context.sceneLayer(scene)
-    // const animator = context.animate()
-    // animator.onBefore((t, dt) => {
-    //   ecs.emit('event delta', null, dt)
-    //   ecs.emit('physics delta', null, dt)
-    //   ecs.emit('display delta', null, dt)
-    // })
-    // animator.start()
+  ecs.on('display delta', (id, dt) => {
+    renderer.render(scene, camera)
   })
 })
 
@@ -62394,6 +62344,7 @@ inject('pod', () => {
   const ecs = inject.one('ecs')
   const THREE = require('three')
   const CANNON = require('cannon')
+  const canvas = document.getElementById('root')
 
   let player = null
 
@@ -62418,6 +62369,14 @@ inject('pod', () => {
   }
   const onkeydown = (e) => pressed[e.keyCode] = true
   const onkeyup = (e) => pressed[e.keyCode] = false
+
+  ecs.on('init', () => {
+    canvas.onclick = (e) => canvas.requestPointerLock()
+    document.addEventListener('pointerlockchange', () => {
+      if (document.pointerLockElement === canvas) ecs.emit('pointer captured')
+      else ecs.emit('pointer released')
+    })
+  })
 
   ecs.on('pointer captured', () => {
     document.addEventListener('mousemove', onmove)
@@ -62488,7 +62447,21 @@ ecs.call('init')
   .then(() => ecs.call('load'))
   .then(() => ecs.call('start'))
 
-},{"./ecs":3,"./physics":4,"./display":5,"./controls":6,"injectinto":7}],0:[function(require,module,exports) {
+ecs.on('start', () => {
+  let last = Date.now()
+  const animate = () => {
+    window.requestAnimationFrame(animate)
+    const current = Date.now()
+    const dt = current - last
+    ecs.emit('event delta', null, dt)
+    ecs.emit('physics delta', null, dt)
+    ecs.emit('display delta', null, dt)
+    last = current
+  }
+  window.requestAnimationFrame(animate)
+})
+
+},{"injectinto":7,"./ecs":3,"./physics":4,"./display":5,"./controls":6}],0:[function(require,module,exports) {
 var global = (1, eval)('this');
 var OldModule = module.bundle.Module;
 function Module() {
