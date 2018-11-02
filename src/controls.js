@@ -1,43 +1,32 @@
 const inject = require('injectinto')
 inject('pod', () => {
   const ecs = inject.one('ecs')
-  const seen = require('seen')
+  const THREE = require('three')
+  const CANNON = require('cannon')
 
-  let cameraOrientation = null
-  let cameraPosition = null
+  let player = null
 
   let movementX = 0
   let movementY = 0
-  const pressed={}
-
-  const forwardkey = 87
-  const backwardkey = 83
-  const leftkey = 65
-  const rightkey = 68
-  const upkey = 81
-  const downkey = 69
+  let canJump = false
+  const pressed = {}
+  const keys = {
+    forward: 87,
+    backward: 83,
+    left: 65,
+    right: 68,
+    up: 81,
+    down: 69,
+    jump: 32
+  }
+  for (let key of Object.values(keys)) pressed[key] = false
 
   const onmove = (e) => {
     movementX += e.movementX
     movementY += e.movementY
   }
   const onkeydown = (e) => pressed[e.keyCode] = true
-  const onkeyup = (e) => delete pressed[e.keyCode]
-
-  ecs.on('init', () => {
-    canvas = document.getElementById('root')
-    canvas.onclick = (e) => canvas.requestPointerLock()
-    document.addEventListener('pointerlockchange', () => {
-      if (document.pointerLockElement === canvas) ecs.emit('pointer captured')
-      else ecs.emit('pointer released')
-    })
-  })
-
-  ecs.on('camera orientation', (id, orientation) =>
-    cameraOrientation = orientation)
-
-  ecs.on('camera position', (id, position) =>
-    cameraPosition = position)
+  const onkeyup = (e) => pressed[e.keyCode] = false
 
   ecs.on('pointer captured', () => {
     document.addEventListener('mousemove', onmove)
@@ -51,34 +40,42 @@ inject('pod', () => {
     document.removeEventListener('keyup', onkeyup)
   })
 
-  const cameraSpeed = 0.02
+  ecs.on('player', (id, p) => {
+    player = p
+    player.physics.addEventListener('collide', (e) => {
+      let contactNormal = new CANNON.Vec3()
+      if (e.contact.bi.id == player.physics.id) e.contact.ni.negate(contactNormal)
+      else contactNormal.copy(e.contact.ni)
+      if (contactNormal.dot(new CANNON.Vec3(0,1,0)) > 0.5) canJump = true
+    })
+  })
+
   let frame = 0
-
-  ecs.on('display delta', (id, dt) => {
+  ecs.on('event delta', (id, dt) => {
     frame++
-    if (cameraOrientation && cameraPosition) {
-      cameraOrientation
-        .multiply(seen.Quaternion.pointAngle(seen.Points.Y(), movementX / 150))
-        .multiply(seen.Quaternion.pointAngle(seen.Points.X(), movementY / 150))
-
-      const z = (pressed[leftkey] ? 1.0 : 0.0)
-        - (pressed[rightkey] ? 1.0 : 0.0)
-      const y = (pressed[forwardkey] ? 1.0 : 0.0)
-        - (pressed[backwardkey] ? 1.0 : 0.0)
-      const x = (pressed[upkey] ? 1.0 : 0.0)
-        - (pressed[downkey] ? 1.0 : 0.0)
-
-      cameraPosition.subtract(seen.P(1, 0, 0)
-          .transform(cameraOrientation.toMatrix())
-          .multiply(x * dt * cameraSpeed))
-      cameraPosition.subtract(seen.P(0, 1, 0)
-          .transform(cameraOrientation.toMatrix())
-          .multiply(y * dt * cameraSpeed))
-      cameraPosition.subtract(seen.P(0, 0, 1)
-          .transform(cameraOrientation.toMatrix())
-          .multiply(z * dt * cameraSpeed))
+    if (!player) return
+    const mouseSensitivity = 0.002
+    player.body.rotation.y -= movementX * mouseSensitivity
+    player.head.rotation.x -= movementY * mouseSensitivity
+    player.head.rotation.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, player.head.rotation.x))
+    const lookDirection = new THREE.Quaternion()
+    lookDirection.setFromEuler(new THREE.Euler(0, player.body.rotation.y, 0, 'XYZ'))
+    const impulse = new THREE.Vector3(
+      Number(pressed[keys.right]) - Number(pressed[keys.left]),
+      Number(pressed[keys.up]) - Number(pressed[keys.down]),
+      Number(pressed[keys.backward]) - Number(pressed[keys.forward]))
+    if (frame % 60 == 0) {
     }
-
+    impulse.multiplyScalar(0.02 * dt)
+    if (pressed[keys.jump] && canJump) {
+      impulse.y = 20
+      canJump = false
+    }
+    impulse.applyQuaternion(lookDirection)
+    player.physics.velocity.x += impulse.x
+    player.physics.velocity.y += impulse.y
+    player.physics.velocity.z += impulse.z
+    player.body.position.copy(player.physics.position)
     movementX = 0
     movementY = 0
   })

@@ -9,11 +9,6 @@ require('./controls')
 
 for (let pod of inject.many('pod')) pod()
 
-ecs.on('load', () => {
-  const id = ecs.id()
-  ecs.emit('create sphere', id)
-})
-
 ecs.call('init')
   .then(() => ecs.call('load'))
   .then(() => ecs.call('start'))

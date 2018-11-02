@@ -9,6 +9,6 @@
   "dependencies": {
     "cannon": "^0.6.2",
     "injectinto": "^1.6.0",
-    "seen": "^0.2.7"
+    "three": "^0.98.0"
   }
 }

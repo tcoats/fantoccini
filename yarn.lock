@@ -10,6 +10,6 @@ injectinto@^1.6.0:
   version "1.6.0"
   resolved "https://registry.yarnpkg.com/injectinto/-/injectinto-1.6.0.tgz#2f56675a13069a28f6b7c5f83991e8ab4b6c8515"
 
-seen@^0.2.7:
-  version "0.2.7"
-  resolved "https://registry.yarnpkg.com/seen/-/seen-0.2.7.tgz#725c1e5174375fb86297141e5eaa6046c76224ef"
+three@^0.98.0:
+  version "0.98.0"
+  resolved "https://registry.yarnpkg.com/three/-/three-0.98.0.tgz#11d4e3cca4b5d099c7de0ea5afa153b5d20cda84"

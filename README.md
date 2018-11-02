@@ -1,7 +1,6 @@
 # Fantoccini
 
-- [x] Move the camera
-- [x] Better understanding of the camera
+- [ ] Understand seen coordinate system
 - [ ] Lookat camera
 - [ ] Display the ground plane
 - [ ] Create more spheres at different locations
