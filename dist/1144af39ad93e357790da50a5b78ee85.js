@@ -13890,50 +13890,51 @@ World.prototype.clearForces = function(){
 const inject = require('injectinto')
 inject('pod', () => {
   const ecs = inject.one('ecs')
-  const CANNON = require('cannon')
+  const cannon = require('cannon')
 
   let world = null
   let entities = {}
 
   ecs.on('init', () => {
-    world = new CANNON.World()
+    world = new cannon.World()
     world.quatNormalizeSkip = 0
     world.quatNormalizeFast = false
-    const solver = new CANNON.GSSolver()
+    const solver = new cannon.GSSolver()
     world.defaultContactMaterial.contactEquationStiffness = 1e9
     world.defaultContactMaterial.contactEquationRelaxation = 4
     solver.iterations = 7
     solver.tolerance = 0.1
-    world.solver = new CANNON.SplitSolver(solver)
+    world.solver = new cannon.SplitSolver(solver)
     world.gravity.set(0,-9.8,0)
-    world.broadphase = new CANNON.NaiveBroadphase()
+    world.broadphase = new cannon.NaiveBroadphase()
 
-    // world = new CANNON.World()
+    // world = new cannon.World()
     // world.defaultContactMaterial.contactEquationStiffness = 1e6
     // world.defaultContactMaterial.contactEquationRegularizationTime = 3
     // world.solver.iterations = 20
     // world.gravity.set(0, -9.82, 0)
     // world.allowSleep = false
-    // world.broadphase = new CANNON.SAPBroadphase(world)
+    // world.broadphase = new cannon.SAPBroadphase(world)
 
-    const physicsMaterial = new CANNON.Material('slipperyMaterial')
+    const physicsMaterial = new cannon.Material('slipperyMaterial')
     world.addContactMaterial(
-      new CANNON.ContactMaterial(physicsMaterial, physicsMaterial, 0.0, 0.3))
+      new cannon.ContactMaterial(physicsMaterial, physicsMaterial, 0.0, 0.3))
 
   })
 
   ecs.on('load ground', (id, ground) => {
-    ground.shape = new CANNON.Plane()
-    ground.body = new CANNON.Body({ mass: 0 })
+    ground.shape = new cannon.Plane()
+    ground.body = new cannon.Body({ mass: 0 })
     ground.body.addShape(ground.shape)
     ground.body.quaternion.setFromAxisAngle(
-      new CANNON.Vec3(1, 0, 0), -Math.PI / 2)
+      new cannon.Vec3(1, 0, 0), -Math.PI / 2)
     world.addBody(ground.body)
+    // entities[id] = ground
   })
 
   ecs.on('load player', (id, player) => {
-    player.shape = new CANNON.Sphere(1.3)
-    player.physics = new CANNON.Body({ mass: 5 })
+    player.shape = new cannon.Sphere(1.3)
+    player.physics = new cannon.Body({ mass: 5 })
     player.physics.addShape(player.shape)
     player.physics.position.set(0, 5, 0)
     player.physics.linearDamping = 0.9
@@ -13941,9 +13942,9 @@ inject('pod', () => {
   })
 
   ecs.on('load box', (id, box) => {
-    const halfExtents = new CANNON.Vec3(1, 1, 1)
-    box.shape = new CANNON.Box(halfExtents)
-    box.body = new CANNON.Body({ mass: 5 })
+    const halfExtents = new cannon.Vec3(1, 1, 1)
+    box.shape = new cannon.Box(halfExtents)
+    box.body = new cannon.Body({ mass: 5 })
     box.body.addShape(box.shape)
     box.body.position.set(
       (Math.random() - 0.5) * 20,
@@ -62230,8 +62231,7 @@ var global = (1,eval)("this");
 const inject = require('injectinto')
 inject('pod', () => {
   const ecs = inject.one('ecs')
-  const THREE = require('three')
-  const CANNON = require('cannon')
+  const three = require('three')
   const canvas = document.getElementById('root')
 
   let entities = {}
@@ -62240,23 +62240,23 @@ inject('pod', () => {
   let renderer = null
 
   ecs.on('load ground', (id, ground) => {
-    ground.geometry = new THREE.PlaneGeometry(300, 300, 50, 50)
-    ground.geometry.applyMatrix(new THREE.Matrix4().makeRotationX(-Math.PI / 2))
-    ground.mesh = new THREE.Mesh(ground.geometry, material)
+    ground.geometry = new three.PlaneGeometry(300, 300, 50, 50)
+    ground.geometry.applyMatrix(new three.Matrix4().makeRotationX(-Math.PI / 2))
+    ground.mesh = new three.Mesh(ground.geometry, material)
     ground.mesh.castShadow = true
     ground.mesh.receiveShadow = true
     scene.add(ground.mesh)
-    //entities[id] = ground
+    entities[id] = ground
   })
 
   ecs.on('init', () => {
-    camera = new THREE.PerspectiveCamera(75, canvas.width / canvas.height, 0.1, 1000)
-    scene = new THREE.Scene()
-    material = new THREE.MeshLambertMaterial({ color: 0xdddddd })
-    scene.fog = new THREE.Fog(0x000000, 0, 500)
-    const ambient = new THREE.AmbientLight(0x111111)
+    camera = new three.PerspectiveCamera(75, canvas.width / canvas.height, 0.1, 1000)
+    scene = new three.Scene()
+    material = new three.MeshLambertMaterial({ color: 0xdddddd })
+    scene.fog = new three.Fog(0x000000, 0, 500)
+    const ambient = new three.AmbientLight(0x111111)
     scene.add(ambient)
-    light = new THREE.SpotLight(0xffffff)
+    light = new three.SpotLight(0xffffff)
     light.position.set(10, 30, 20)
     light.target.position.set(0, 0, 0)
     light.castShadow = true
@@ -62269,7 +62269,7 @@ inject('pod', () => {
     light.shadow.mapSize.height = 2 * 512
     scene.add(light)
 
-    renderer = new THREE.WebGLRenderer({ canvas: canvas })
+    renderer = new three.WebGLRenderer({ canvas: canvas })
     renderer.shadowMap.enabled = true
     renderer.shadowMapSoft = true
     renderer.setSize(645, 405)
@@ -62277,9 +62277,9 @@ inject('pod', () => {
   })
 
   ecs.on('load player', (id, player) => {
-    player.body = new THREE.Object3D()
+    player.body = new three.Object3D()
     scene.add(player.body)
-    player.head = new THREE.Object3D()
+    player.head = new three.Object3D()
     player.head.add(camera)
     player.body.position.y = 2
     player.body.add(player.head)
@@ -62287,10 +62287,10 @@ inject('pod', () => {
   })
 
   ecs.on('load box', (id, box) => {
-    const halfExtents = new CANNON.Vec3(1, 1, 1)
-    box.geometry = new THREE.BoxGeometry(
+    const halfExtents = new three.Vector3(1, 1, 1)
+    box.geometry = new three.BoxGeometry(
       halfExtents.x * 2, halfExtents.y * 2, halfExtents.z * 2)
-    box.mesh = new THREE.Mesh(box.geometry, material)
+    box.mesh = new three.Mesh(box.geometry, material)
     scene.add(box.mesh)
     box.mesh.castShadow = true
     box.mesh.receiveShadow = true
@@ -62306,7 +62306,7 @@ inject('pod', () => {
   })
 })
 
-},{"injectinto":7,"three":9,"cannon":8}],6:[function(require,module,exports) {
+},{"injectinto":7,"three":9}],6:[function(require,module,exports) {
 const inject = require('injectinto')
 inject('pod', () => {
   const ecs = inject.one('ecs')
