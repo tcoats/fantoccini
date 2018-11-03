@@ -13,6 +13,17 @@ ecs.call('init')
   .then(() => ecs.call('load'))
   .then(() => ecs.call('start'))
 
+ecs.on('load', () => {
+  ecs.emit('load ground', ecs.id(), {})
+  ecs.emit('load player', ecs.id(), {})
+  ecs.emit('load box', ecs.id(), {})
+  ecs.emit('load box', ecs.id(), {})
+  ecs.emit('load box', ecs.id(), {})
+  ecs.emit('load box', ecs.id(), {})
+  ecs.emit('load box', ecs.id(), {})
+  ecs.emit('load box', ecs.id(), {})
+})
+
 ecs.on('start', () => {
   let last = Date.now()
   const animate = () => {

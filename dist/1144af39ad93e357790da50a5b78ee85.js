@@ -13890,56 +13890,82 @@ World.prototype.clearForces = function(){
 const inject = require('injectinto')
 inject('pod', () => {
   const ecs = inject.one('ecs')
-  const cannon = require('cannon')
+  const CANNON = require('cannon')
 
   let world = null
-  let groundBody = null
-  let groundShape = null
-
-  const bodies = {}
+  let entities = {}
 
   ecs.on('init', () => {
-    world = new cannon.World()
-    world.defaultContactMaterial.contactEquationStiffness = 1e6
-    world.defaultContactMaterial.contactEquationRegularizationTime = 3
-    world.solver.iterations = 20
-    world.gravity.set(0, 0, -9.82)
-    world.allowSleep = true
-    world.broadphase = new cannon.SAPBroadphase(world)
+    world = new CANNON.World()
+    world.quatNormalizeSkip = 0
+    world.quatNormalizeFast = false
+    const solver = new CANNON.GSSolver()
+    world.defaultContactMaterial.contactEquationStiffness = 1e9
+    world.defaultContactMaterial.contactEquationRelaxation = 4
+    solver.iterations = 7
+    solver.tolerance = 0.1
+    world.solver = new CANNON.SplitSolver(solver)
+    world.gravity.set(0,-9.8,0)
+    world.broadphase = new CANNON.NaiveBroadphase()
 
-    groundBody = new cannon.Body({ mass: 0 })
-    groundShape = new cannon.Plane()
-    groundBody.addShape(groundShape)
-    world.addBody(groundBody)
+    // world = new CANNON.World()
+    // world.defaultContactMaterial.contactEquationStiffness = 1e6
+    // world.defaultContactMaterial.contactEquationRegularizationTime = 3
+    // world.solver.iterations = 20
+    // world.gravity.set(0, -9.82, 0)
+    // world.allowSleep = false
+    // world.broadphase = new CANNON.SAPBroadphase(world)
+
+    const physicsMaterial = new CANNON.Material('slipperyMaterial')
+    world.addContactMaterial(
+      new CANNON.ContactMaterial(physicsMaterial, physicsMaterial, 0.0, 0.3))
+
   })
 
-  ecs.on('create sphere', (id) => {
-    const sphereBody = new cannon.Body({
-      mass: 5,
-      friction: 0.1,
-      restitution: 0.3,
-      sleepSpeedLimit: 0.01,
-      sleepTimeLimit: 1.0,
-      position: new cannon.Vec3(0, 0, 10),
-      velocity: new cannon.Vec3(0, 0, 0),
-      angularVelocity: new cannon.Vec3(0, 0, 0),
-      shape: new cannon.Sphere(1)
-    })
-    world.addBody(sphereBody)
-    sphereBody._id = id
-    bodies[id] = sphereBody
-    ecs.emit('new sphere body', sphereBody._id, sphereBody)
+  ecs.on('load ground', (id, ground) => {
+    ground.shape = new CANNON.Plane()
+    ground.body = new CANNON.Body({ mass: 0 })
+    ground.body.addShape(ground.shape)
+    ground.body.quaternion.setFromAxisAngle(
+      new CANNON.Vec3(1, 0, 0), -Math.PI / 2)
+    world.addBody(ground.body)
+  })
+
+  ecs.on('load player', (id, player) => {
+    player.shape = new CANNON.Sphere(1.3)
+    player.physics = new CANNON.Body({ mass: 5 })
+    player.physics.addShape(player.shape)
+    player.physics.position.set(0, 5, 0)
+    player.physics.linearDamping = 0.9
+    world.addBody(player.physics)
+  })
+
+  ecs.on('load box', (id, box) => {
+    const halfExtents = new CANNON.Vec3(1, 1, 1)
+    box.shape = new CANNON.Box(halfExtents)
+    box.body = new CANNON.Body({ mass: 5 })
+    box.body.addShape(box.shape)
+    box.body.position.set(
+      (Math.random() - 0.5) * 20,
+      1 + (Math.random() - 0.5) * 1,
+      (Math.random() - 0.5) * 20)
+    world.addBody(box.body)
+    entities[id] = box
   })
 
   ecs.on('delete', (id) => {
-    if (bodies[id]) {
-      world.removeBody(bodies[id])
-      delete bodies[id]
+    if (entities[id]) {
+      world.removeBody(entities[id])
+      delete entities[id]
     }
   })
 
   ecs.on('physics delta', (id, dt) => {
     world.step(1.0 / 60.0, dt / 1000, 3)
+    for (let shape of Object.values(entities)) {
+      shape.mesh.position.copy(shape.body.position)
+      shape.mesh.quaternion.copy(shape.body.quaternion)
+    }
   })
 })
 
@@ -62207,43 +62233,26 @@ inject('pod', () => {
   const THREE = require('three')
   const CANNON = require('cannon')
   const canvas = document.getElementById('root')
-  let player, world, boxes=[], boxMeshes=[]
-  let camera, scene, renderer
-  let geometry, material, mesh
-  let element = document.body
+
+  let entities = {}
+  let camera = null
+  let scene = null
+  let renderer = null
+
+  ecs.on('load ground', (id, ground) => {
+    ground.geometry = new THREE.PlaneGeometry(300, 300, 50, 50)
+    ground.geometry.applyMatrix(new THREE.Matrix4().makeRotationX(-Math.PI / 2))
+    ground.mesh = new THREE.Mesh(ground.geometry, material)
+    ground.mesh.castShadow = true
+    ground.mesh.receiveShadow = true
+    scene.add(ground.mesh)
+    //entities[id] = ground
+  })
 
   ecs.on('init', () => {
-    world = new CANNON.World()
-    world.quatNormalizeSkip = 0
-    world.quatNormalizeFast = false
-    const solver = new CANNON.GSSolver()
-    world.defaultContactMaterial.contactEquationStiffness = 1e9
-    world.defaultContactMaterial.contactEquationRelaxation = 4
-    solver.iterations = 7
-    solver.tolerance = 0.1
-    world.solver = new CANNON.SplitSolver(solver)
-    world.gravity.set(0,-9.8,0)
-    world.broadphase = new CANNON.NaiveBroadphase()
-
-    // world = new CANNON.World()
-    // world.defaultContactMaterial.contactEquationStiffness = 1e6
-    // world.defaultContactMaterial.contactEquationRegularizationTime = 3
-    // world.solver.iterations = 20
-    // world.gravity.set(0, -9.82, 0)
-    // world.allowSleep = false
-    // world.broadphase = new CANNON.SAPBroadphase(world)
-
-    const physicsMaterial = new CANNON.Material('slipperyMaterial')
-    world.addContactMaterial(
-      new CANNON.ContactMaterial(physicsMaterial, physicsMaterial, 0.0, 0.3))
-
-    const groundShape = new CANNON.Plane()
-    const groundBody = new CANNON.Body({ mass: 0 })
-    groundBody.addShape(groundShape)
-    groundBody.quaternion.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), -Math.PI / 2)
-    world.addBody(groundBody)
     camera = new THREE.PerspectiveCamera(75, canvas.width / canvas.height, 0.1, 1000)
     scene = new THREE.Scene()
+    material = new THREE.MeshLambertMaterial({ color: 0xdddddd })
     scene.fog = new THREE.Fog(0x000000, 0, 500)
     const ambient = new THREE.AmbientLight(0x111111)
     scene.add(ambient)
@@ -62260,14 +62269,14 @@ inject('pod', () => {
     light.shadow.mapSize.height = 2 * 512
     scene.add(light)
 
-    player = {}
-    player.shape = new CANNON.Sphere(1.3)
-    player.physics = new CANNON.Body({ mass: 5 })
-    player.physics.addShape(player.shape)
-    player.physics.position.set(0, 5, 0)
-    // player.physics.linearDamping = 0.9
-    world.addBody(player.physics)
+    renderer = new THREE.WebGLRenderer({ canvas: canvas })
+    renderer.shadowMap.enabled = true
+    renderer.shadowMapSoft = true
+    renderer.setSize(645, 405)
+    renderer.setClearColor(scene.fog.color, 1)
+  })
 
+  ecs.on('load player', (id, player) => {
     player.body = new THREE.Object3D()
     scene.add(player.body)
     player.head = new THREE.Object3D()
@@ -62275,64 +62284,23 @@ inject('pod', () => {
     player.body.position.y = 2
     player.body.add(player.head)
     ecs.emit('player', null, player)
+  })
 
-    geometry = new THREE.PlaneGeometry(300, 300, 50, 50)
-    geometry.applyMatrix(new THREE.Matrix4().makeRotationX(-Math.PI / 2))
-    material = new THREE.MeshLambertMaterial({ color: 0xdddddd })
-    mesh = new THREE.Mesh(geometry, material)
-    mesh.castShadow = true
-    mesh.receiveShadow = true
-    scene.add(mesh)
-
-    renderer = new THREE.WebGLRenderer({ canvas: canvas })
-    renderer.shadowMap.enabled = true
-    renderer.shadowMapSoft = true
-    renderer.setSize(645, 405)
-    renderer.setClearColor(scene.fog.color, 1)
+  ecs.on('load box', (id, box) => {
     const halfExtents = new CANNON.Vec3(1, 1, 1)
-    const boxShape = new CANNON.Box(halfExtents)
-    const boxGeometry = new THREE.BoxGeometry(halfExtents.x * 2, halfExtents.y * 2, halfExtents.z * 2)
-    for (let i = 0; i < 7; i++) {
-      const x = (Math.random()-0.5)*20
-      const y = 1 + (Math.random()-0.5)*1
-      const z = (Math.random()-0.5)*20
-      const boxBody = new CANNON.Body({ mass: 5 })
-      boxBody.addShape(boxShape)
-      const boxMesh = new THREE.Mesh(boxGeometry, material)
-      world.addBody(boxBody)
-      scene.add(boxMesh)
-      boxBody.position.set(x, y, z)
-      boxMesh.position.set(x, y, z)
-      boxMesh.castShadow = true
-      boxMesh.receiveShadow = true
-      boxes.push(boxBody)
-      boxMeshes.push(boxMesh)
-    }
+    box.geometry = new THREE.BoxGeometry(
+      halfExtents.x * 2, halfExtents.y * 2, halfExtents.z * 2)
+    box.mesh = new THREE.Mesh(box.geometry, material)
+    scene.add(box.mesh)
+    box.mesh.castShadow = true
+    box.mesh.receiveShadow = true
+    entities[id] = box
   })
 
-  // ecs.on('new sphere body', (id, body) => {
-  //   const shape = seen.Shapes.sphere(1)
-  //   shape._id = id
-  //   shape.scale(1)
-  //   shape.bake()
-  //   model.add(shape)
-  //   shapes[id] = { shape: shape, body: body }
-  // })
-
-  // ecs.on('delete', (id) => {
-  //   if (shapes[id]) {
-  //     model.remove(shapes[id].shape)
-  //     delete shapes[id]
-  //   }
-  // })
-
-  ecs.on('physics delta', (id, dt) => {
-    world.step(1.0 / 60.0, dt / 1000, 3)
-    for (let i = 0; i < boxes.length; i++) {
-      boxMeshes[i].position.copy(boxes[i].position)
-      boxMeshes[i].quaternion.copy(boxes[i].quaternion)
-    }
+  ecs.on('delete', (id) => {
+    if (entities[id]) delete entities[id]
   })
+
   ecs.on('display delta', (id, dt) => {
     renderer.render(scene, camera)
   })
@@ -62446,6 +62414,17 @@ for (let pod of inject.many('pod')) pod()
 ecs.call('init')
   .then(() => ecs.call('load'))
   .then(() => ecs.call('start'))
+
+ecs.on('load', () => {
+  ecs.emit('load ground', ecs.id(), {})
+  ecs.emit('load player', ecs.id(), {})
+  ecs.emit('load box', ecs.id(), {})
+  ecs.emit('load box', ecs.id(), {})
+  ecs.emit('load box', ecs.id(), {})
+  ecs.emit('load box', ecs.id(), {})
+  ecs.emit('load box', ecs.id(), {})
+  ecs.emit('load box', ecs.id(), {})
+})
 
 ecs.on('start', () => {
   let last = Date.now()
