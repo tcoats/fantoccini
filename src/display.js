@@ -1,3 +1,6 @@
+// https://threejs.org/
+// https://threejs.org/docs/
+
 const inject = require('injectinto')
 inject('pod', () => {
   const ecs = inject.one('ecs')
@@ -8,16 +11,6 @@ inject('pod', () => {
   let camera = null
   let scene = null
   let renderer = null
-
-  ecs.on('load ground', (id, ground) => {
-    ground.geometry = new three.PlaneGeometry(300, 300, 50, 50)
-    ground.geometry.applyMatrix(new three.Matrix4().makeRotationX(-Math.PI / 2))
-    ground.mesh = new three.Mesh(ground.geometry, material)
-    ground.mesh.castShadow = true
-    ground.mesh.receiveShadow = true
-    scene.add(ground.mesh)
-    entities[id] = ground
-  })
 
   ecs.on('init', () => {
     camera = new three.PerspectiveCamera(75, canvas.width / canvas.height, 0.1, 1000)
@@ -46,6 +39,16 @@ inject('pod', () => {
     renderer.setClearColor(scene.fog.color, 1)
   })
 
+  ecs.on('load ground', (id, ground) => {
+    ground.geometry = new three.PlaneGeometry(300, 300, 50, 50)
+    ground.geometry.applyMatrix(new three.Matrix4().makeRotationX(-Math.PI / 2))
+    ground.mesh = new three.Mesh(ground.geometry, material)
+    ground.mesh.castShadow = true
+    ground.mesh.receiveShadow = true
+    scene.add(ground.mesh)
+    entities[id] = ground
+  })
+
   ecs.on('load player', (id, player) => {
     player.body = new three.Object3D()
     scene.add(player.body)
@@ -53,7 +56,6 @@ inject('pod', () => {
     player.head.add(camera)
     player.body.position.y = 2
     player.body.add(player.head)
-    ecs.emit('player', null, player)
   })
 
   ecs.on('load box', (id, box) => {

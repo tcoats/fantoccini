@@ -13908,14 +13908,6 @@ inject('pod', () => {
     world.gravity.set(0,-9.8,0)
     world.broadphase = new cannon.NaiveBroadphase()
 
-    // world = new cannon.World()
-    // world.defaultContactMaterial.contactEquationStiffness = 1e6
-    // world.defaultContactMaterial.contactEquationRegularizationTime = 3
-    // world.solver.iterations = 20
-    // world.gravity.set(0, -9.82, 0)
-    // world.allowSleep = false
-    // world.broadphase = new cannon.SAPBroadphase(world)
-
     const physicsMaterial = new cannon.Material('slipperyMaterial')
     world.addContactMaterial(
       new cannon.ContactMaterial(physicsMaterial, physicsMaterial, 0.0, 0.3))
@@ -62228,6 +62220,9 @@ var global = (1,eval)("this");
 })));
 
 },{}],5:[function(require,module,exports) {
+// https://threejs.org/
+// https://threejs.org/docs/
+
 const inject = require('injectinto')
 inject('pod', () => {
   const ecs = inject.one('ecs')
@@ -62238,16 +62233,6 @@ inject('pod', () => {
   let camera = null
   let scene = null
   let renderer = null
-
-  ecs.on('load ground', (id, ground) => {
-    ground.geometry = new three.PlaneGeometry(300, 300, 50, 50)
-    ground.geometry.applyMatrix(new three.Matrix4().makeRotationX(-Math.PI / 2))
-    ground.mesh = new three.Mesh(ground.geometry, material)
-    ground.mesh.castShadow = true
-    ground.mesh.receiveShadow = true
-    scene.add(ground.mesh)
-    entities[id] = ground
-  })
 
   ecs.on('init', () => {
     camera = new three.PerspectiveCamera(75, canvas.width / canvas.height, 0.1, 1000)
@@ -62276,6 +62261,16 @@ inject('pod', () => {
     renderer.setClearColor(scene.fog.color, 1)
   })
 
+  ecs.on('load ground', (id, ground) => {
+    ground.geometry = new three.PlaneGeometry(300, 300, 50, 50)
+    ground.geometry.applyMatrix(new three.Matrix4().makeRotationX(-Math.PI / 2))
+    ground.mesh = new three.Mesh(ground.geometry, material)
+    ground.mesh.castShadow = true
+    ground.mesh.receiveShadow = true
+    scene.add(ground.mesh)
+    entities[id] = ground
+  })
+
   ecs.on('load player', (id, player) => {
     player.body = new three.Object3D()
     scene.add(player.body)
@@ -62283,7 +62278,6 @@ inject('pod', () => {
     player.head.add(camera)
     player.body.position.y = 2
     player.body.add(player.head)
-    ecs.emit('player', null, player)
   })
 
   ecs.on('load box', (id, box) => {
@@ -62358,12 +62352,13 @@ inject('pod', () => {
     document.removeEventListener('keyup', onkeyup)
   })
 
-  ecs.on('player', (id, p) => {
+  ecs.on('load player', (id, p) => {
     player = p
     player.physics.addEventListener('collide', (e) => {
       let contactNormal = new CANNON.Vec3()
       if (e.contact.bi.id == player.physics.id) e.contact.ni.negate(contactNormal)
       else contactNormal.copy(e.contact.ni)
+      // todo = better jumping logic
       if (contactNormal.dot(new CANNON.Vec3(0,1,0)) > 0.5) canJump = true
     })
   })
@@ -62375,15 +62370,16 @@ inject('pod', () => {
     const mouseSensitivity = 0.002
     player.body.rotation.y -= movementX * mouseSensitivity
     player.head.rotation.x -= movementY * mouseSensitivity
-    player.head.rotation.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, player.head.rotation.x))
+    player.head.rotation.x = Math.min(Math.PI / 2, player.head.rotation.x)
+    player.head.rotation.x = Math.max(-Math.PI / 2, player.head.rotation.x)
     const lookDirection = new THREE.Quaternion()
-    lookDirection.setFromEuler(new THREE.Euler(0, player.body.rotation.y, 0, 'XYZ'))
+    lookDirection.setFromEuler(
+      new THREE.Euler(0, player.body.rotation.y, 0, 'XYZ'))
     const impulse = new THREE.Vector3(
       Number(pressed[keys.right]) - Number(pressed[keys.left]),
       Number(pressed[keys.up]) - Number(pressed[keys.down]),
       Number(pressed[keys.backward]) - Number(pressed[keys.forward]))
-    if (frame % 60 == 0) {
-    }
+    if (frame % 60 == 0) {}
     impulse.multiplyScalar(0.02 * dt)
     if (pressed[keys.jump] && canJump) {
       impulse.y = 20

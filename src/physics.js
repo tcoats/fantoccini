@@ -22,14 +22,6 @@ inject('pod', () => {
     world.gravity.set(0,-9.8,0)
     world.broadphase = new cannon.NaiveBroadphase()
 
-    // world = new cannon.World()
-    // world.defaultContactMaterial.contactEquationStiffness = 1e6
-    // world.defaultContactMaterial.contactEquationRegularizationTime = 3
-    // world.solver.iterations = 20
-    // world.gravity.set(0, -9.82, 0)
-    // world.allowSleep = false
-    // world.broadphase = new cannon.SAPBroadphase(world)
-
     const physicsMaterial = new cannon.Material('slipperyMaterial')
     world.addContactMaterial(
       new cannon.ContactMaterial(physicsMaterial, physicsMaterial, 0.0, 0.3))

@@ -49,12 +49,13 @@ inject('pod', () => {
     document.removeEventListener('keyup', onkeyup)
   })
 
-  ecs.on('player', (id, p) => {
+  ecs.on('load player', (id, p) => {
     player = p
     player.physics.addEventListener('collide', (e) => {
       let contactNormal = new CANNON.Vec3()
       if (e.contact.bi.id == player.physics.id) e.contact.ni.negate(contactNormal)
       else contactNormal.copy(e.contact.ni)
+      // todo = better jumping logic
       if (contactNormal.dot(new CANNON.Vec3(0,1,0)) > 0.5) canJump = true
     })
   })
@@ -66,15 +67,16 @@ inject('pod', () => {
     const mouseSensitivity = 0.002
     player.body.rotation.y -= movementX * mouseSensitivity
     player.head.rotation.x -= movementY * mouseSensitivity
-    player.head.rotation.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, player.head.rotation.x))
+    player.head.rotation.x = Math.min(Math.PI / 2, player.head.rotation.x)
+    player.head.rotation.x = Math.max(-Math.PI / 2, player.head.rotation.x)
     const lookDirection = new THREE.Quaternion()
-    lookDirection.setFromEuler(new THREE.Euler(0, player.body.rotation.y, 0, 'XYZ'))
+    lookDirection.setFromEuler(
+      new THREE.Euler(0, player.body.rotation.y, 0, 'XYZ'))
     const impulse = new THREE.Vector3(
       Number(pressed[keys.right]) - Number(pressed[keys.left]),
       Number(pressed[keys.up]) - Number(pressed[keys.down]),
       Number(pressed[keys.backward]) - Number(pressed[keys.forward]))
-    if (frame % 60 == 0) {
-    }
+    if (frame % 60 == 0) {}
     impulse.multiplyScalar(0.02 * dt)
     if (pressed[keys.jump] && canJump) {
       impulse.y = 20
