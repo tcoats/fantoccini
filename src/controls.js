@@ -3,6 +3,7 @@ inject('pod', () => {
   const ecs = inject.one('ecs')
   const three = require('three')
   const cannon = require('cannon')
+  const canvas = document.getElementById('root')
 
   let player = null
   let camera = null
@@ -29,34 +30,30 @@ inject('pod', () => {
   }
   const onkeydown = (e) => pressed[e.keyCode] = true
   const onkeyup = (e) => pressed[e.keyCode] = false
+  const onclick = (e) => {
+    const mouse3D = new three.Vector3(
+      (e.clientX / canvas.width) * 2 - 1,
+      -(e.clientY / canvas.height) * 2 + 1,
+      0)
+    mouse3D.unproject(camera)
+    // calculate z offset
+    const offset = new three.Vector3(0, 0, -3)
+    const lookDirection = new three.Quaternion()
+    player.head.getWorldQuaternion(lookDirection)
+    offset.applyQuaternion(lookDirection)
+    mouse3D.add(offset)
+    ecs.emit('pointer click', null, mouse3D)
+  }
 
   ecs.on('init', () => {
-    const canvas = document.getElementById('root')
     canvas.addEventListener('click', (e) => {
       if (!islocked) canvas.requestPointerLock()
-      else {
-        const mouse3D = new three.Vector3(
-          (e.clientX / canvas.width) * 2 - 1,
-          -( e.clientY / canvas.height ) * 2 + 1,
-          0)
-        mouse3D.unproject(camera)
-        // calculate z offset
-        const offset = new three.Vector3(0, 0, -3)
-        const lookDirection = new three.Quaternion()
-        player.head.getWorldQuaternion(lookDirection)
-        offset.applyQuaternion(lookDirection)
-        mouse3D.add(offset)
-        ecs.emit('pointer click', null, mouse3D)
-      }
+      else onclick(e)
     })
     document.addEventListener('pointerlockchange', () => {
       if (document.pointerLockElement === canvas) ecs.emit('pointer captured')
       else ecs.emit('pointer released')
     })
-  })
-
-  ecs.on('pointer click', (id, e) => {
-    ecs.emit('load box', ecs.id(), { position: e })
   })
 
   ecs.on('pointer captured', () => {

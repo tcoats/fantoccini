@@ -43,3 +43,7 @@ ecs.on('start', () => {
   }
   window.requestAnimationFrame(animate)
 })
+
+ecs.on('pointer click', (id, e) => {
+  ecs.emit('load box', ecs.id(), { position: e })
+})

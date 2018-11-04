@@ -1,8 +1,8 @@
 # Fantoccini
 
 ## Editor
+- [x] Create boxes
 - [ ] Editor 3rd person camera
-- [ ] Crosshair
 - [ ] Axis legend
 - [ ] Pause / play
 - [ ] Mouse select
@@ -16,10 +16,6 @@
 - [ ] Generate dude mesh from primative skeleton
 - [ ] Content aware 3rd person camera
 - [ ] Edge detection for grabbing
-
-x = red
-y = green
-z = blue
 
 # AI
 https://www.oreilly.com/ideas/the-current-state-of-machine-intelligence-2-0

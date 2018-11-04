@@ -11,6 +11,9 @@ inject('pod', () => {
   let camera = null
   let scene = null
   let renderer = null
+
+  let axiscamera = null
+  let axisscene = null
   let axislegend = null
 
   ecs.on('init', () => {
@@ -36,11 +39,14 @@ inject('pod', () => {
     renderer = new three.WebGLRenderer({ canvas: canvas })
     renderer.shadowMap.enabled = true
     renderer.shadowMapSoft = true
-    renderer.setSize(645, 405)
-    renderer.setClearColor(scene.fog.color, 1)
+    renderer.setSize(canvas.width, canvas.height, false)
+    renderer.setClearColor(0x000000, 1)
+    renderer.autoClear = false
 
-    axislegend = new three.AxesHelper(1)
-    scene.add(axislegend)
+    axiscamera = new three.OrthographicCamera(-1, 1, 1, -1, 0, 2)
+    axisscene = new three.Scene()
+    axisscene.add(new three.AmbientLight(0x111111))
+    axisscene.add(new three.AxesHelper(1))
   })
 
   ecs.on('load', () => {
@@ -82,6 +88,14 @@ inject('pod', () => {
   })
 
   ecs.on('display delta', (id, dt) => {
+    camera.getWorldQuaternion(axiscamera.quaternion)
+    axiscamera.position.set(0, 0, 1)
+    axiscamera.position.applyQuaternion(axiscamera.quaternion)
+    renderer.clear(true, true, true)
+    renderer.setViewport(0, 0, canvas.width, canvas.height)
     renderer.render(scene, camera)
+    renderer.clear(false, true, false)
+    renderer.setViewport(0, 0, 100, 100)
+    renderer.render(axisscene, axiscamera)
   })
 })
