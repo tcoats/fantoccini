@@ -162,38 +162,6 @@ module.exports.many = (key) => _inject.many(key)
 module.exports.clear = (key) => _inject.clear(key)
 module.exports.clearAll = () => _inject.clearAll()
 
-},{}],3:[function(require,module,exports) {
-module.exports = () => {
-  const free = []
-  let counter = 0
-  const listeners = {
-    'delete': [
-      (id) => {
-        free.push(id)
-        res.emit('deleted', id)
-      }
-    ]
-  }
-  const res = {
-    id: () => {
-      if (free.length > 0) return free.pop()
-      return ++counter
-    },
-    on: (e, fn) => {
-      if (!listeners[e]) listeners[e] = []
-      listeners[e].push(fn)
-    },
-    emit: (e, id, ...args) => {
-      if (!listeners[e]) return
-      for (let listener of listeners[e]) listener(id, ...args)
-    },
-    call: (e, id, ...args) =>
-      Promise.all(!listeners[e] ? [] :
-        listeners[e].map((listener) => listener(id, ...args)))
-  }
-  return res
-}
-
 },{}],8:[function(require,module,exports) {
 var global = (1,eval)("this");
 /*
@@ -13883,74 +13851,7 @@ World.prototype.clearForces = function(){
 },{"../collision/AABB":3,"../collision/ArrayCollisionMatrix":4,"../collision/NaiveBroadphase":7,"../collision/Ray":9,"../collision/RaycastResult":10,"../equations/ContactEquation":19,"../equations/FrictionEquation":21,"../material/ContactMaterial":24,"../material/Material":25,"../math/Quaternion":28,"../math/Vec3":30,"../objects/Body":31,"../shapes/Shape":43,"../solver/GSSolver":46,"../utils/EventTarget":49,"../utils/TupleDictionary":52,"../utils/Vec3Pool":54,"./Narrowphase":55}]},{},[2])
 (2)
 });
-},{}],4:[function(require,module,exports) {
-// http://schteppe.github.io/cannon.js/
-// http://schteppe.github.io/cannon.js/docs/
-
-const inject = require('injectinto')
-inject('pod', () => {
-  const ecs = inject.one('ecs')
-  const cannon = require('cannon')
-
-  let world = null
-  let entities = {}
-
-  ecs.on('init', () => {
-    world = new cannon.World()
-    world.quatNormalizeSkip = 0
-    world.quatNormalizeFast = false
-    const solver = new cannon.GSSolver()
-    world.defaultContactMaterial.contactEquationStiffness = 1e9
-    world.defaultContactMaterial.contactEquationRelaxation = 4
-    solver.iterations = 7
-    solver.tolerance = 0.1
-    world.solver = new cannon.SplitSolver(solver)
-    world.gravity.set(0,-9.8,0)
-    world.broadphase = new cannon.NaiveBroadphase()
-
-    const physicsMaterial = new cannon.Material('slipperyMaterial')
-    world.addContactMaterial(
-      new cannon.ContactMaterial(physicsMaterial, physicsMaterial, 0.0, 0.3))
-
-  })
-
-  ecs.on('load ground', (id, ground) => {
-    ground.shape = new cannon.Plane()
-    ground.body = new cannon.Body({ mass: 0 })
-    ground.body.addShape(ground.shape)
-    ground.body.quaternion.setFromAxisAngle(
-      new cannon.Vec3(1, 0, 0), -Math.PI / 2)
-    world.addBody(ground.body)
-    // entities[id] = ground
-  })
-
-  ecs.on('load box', (id, box) => {
-    const halfExtents = new cannon.Vec3(1, 1, 1)
-    box.shape = new cannon.Box(halfExtents)
-    box.body = new cannon.Body({ mass: 5 })
-    box.body.addShape(box.shape)
-    box.body.position.copy(box.position)
-    world.addBody(box.body)
-    entities[id] = box
-  })
-
-  ecs.on('delete', (id) => {
-    if (entities[id]) {
-      world.removeBody(entities[id])
-      delete entities[id]
-    }
-  })
-
-  ecs.on('physics delta', (id, dt) => {
-    world.step(1.0 / 60.0, dt / 1000, 3)
-    for (let shape of Object.values(entities)) {
-      shape.mesh.position.copy(shape.body.position)
-      shape.mesh.quaternion.copy(shape.body.quaternion)
-    }
-  })
-})
-
-},{"injectinto":7,"cannon":8}],9:[function(require,module,exports) {
+},{}],9:[function(require,module,exports) {
 var global = (1,eval)("this");
 (function (global, factory) {
 	typeof exports === 'object' && typeof module !== 'undefined' ? factory(exports) :
@@ -62207,7 +62108,106 @@ var global = (1,eval)("this");
 
 })));
 
-},{}],5:[function(require,module,exports) {
+},{}],3:[function(require,module,exports) {
+module.exports = () => {
+  const free = []
+  let counter = 0
+  const listeners = {
+    'delete': [
+      (id) => {
+        free.push(id)
+        res.emit('deleted', id)
+      }
+    ]
+  }
+  const res = {
+    id: () => {
+      if (free.length > 0) return free.pop()
+      return ++counter
+    },
+    on: (e, fn) => {
+      if (!listeners[e]) listeners[e] = []
+      listeners[e].push(fn)
+    },
+    emit: (e, id, ...args) => {
+      if (!listeners[e]) return
+      for (let listener of listeners[e]) listener(id, ...args)
+    },
+    call: (e, id, ...args) =>
+      Promise.all(!listeners[e] ? [] :
+        listeners[e].map((listener) => listener(id, ...args)))
+  }
+  return res
+}
+
+},{}],4:[function(require,module,exports) {
+// http://schteppe.github.io/cannon.js/
+// http://schteppe.github.io/cannon.js/docs/
+
+const inject = require('injectinto')
+inject('pod', () => {
+  const ecs = inject.one('ecs')
+  const cannon = require('cannon')
+
+  let world = null
+  let entities = {}
+
+  ecs.on('init', () => {
+    world = new cannon.World()
+    world.quatNormalizeSkip = 0
+    world.quatNormalizeFast = false
+    const solver = new cannon.GSSolver()
+    world.defaultContactMaterial.contactEquationStiffness = 1e9
+    world.defaultContactMaterial.contactEquationRelaxation = 4
+    solver.iterations = 7
+    solver.tolerance = 0.1
+    world.solver = new cannon.SplitSolver(solver)
+    world.gravity.set(0,-9.8,0)
+    world.broadphase = new cannon.NaiveBroadphase()
+
+    const physicsMaterial = new cannon.Material('slipperyMaterial')
+    world.addContactMaterial(
+      new cannon.ContactMaterial(physicsMaterial, physicsMaterial, 0.0, 0.3))
+
+  })
+
+  ecs.on('load ground', (id, ground) => {
+    ground.shape = new cannon.Plane()
+    ground.body = new cannon.Body({ mass: 0 })
+    ground.body.addShape(ground.shape)
+    ground.body.quaternion.setFromAxisAngle(
+      new cannon.Vec3(1, 0, 0), -Math.PI / 2)
+    world.addBody(ground.body)
+    // entities[id] = ground
+  })
+
+  ecs.on('load box', (id, box) => {
+    const halfExtents = new cannon.Vec3(1, 1, 1)
+    box.shape = new cannon.Box(halfExtents)
+    box.body = new cannon.Body({ mass: 5 })
+    box.body.addShape(box.shape)
+    box.body.position.copy(box.position)
+    world.addBody(box.body)
+    entities[id] = box
+  })
+
+  ecs.on('delete', (id) => {
+    if (entities[id]) {
+      world.removeBody(entities[id])
+      delete entities[id]
+    }
+  })
+
+  ecs.on('physics delta', (id, dt) => {
+    world.step(1.0 / 60.0, dt / 1000, 3)
+    for (let shape of Object.values(entities)) {
+      shape.mesh.position.copy(shape.body.position)
+      shape.mesh.quaternion.copy(shape.body.quaternion)
+    }
+  })
+})
+
+},{"injectinto":7,"cannon":8}],5:[function(require,module,exports) {
 // https://threejs.org/
 // https://threejs.org/docs/
 
@@ -62341,18 +62341,15 @@ inject('pod', () => {
   const onkeydown = (e) => pressed[e.keyCode] = true
   const onkeyup = (e) => pressed[e.keyCode] = false
   const onclick = (e) => {
-    const mouse3D = new three.Vector3(
+    const client3D = new three.Vector3(
       (e.clientX / canvas.width) * 2 - 1,
       -(e.clientY / canvas.height) * 2 + 1,
       0)
-    mouse3D.unproject(worldcamera)
-    // calculate z offset
-    const offset = new three.Vector3(0, 0, -3)
-    const lookDirection = new three.Quaternion()
-    camera.head.getWorldQuaternion(lookDirection)
-    offset.applyQuaternion(lookDirection)
-    mouse3D.add(offset)
-    ecs.emit('pointer click', null, mouse3D)
+    client3D.unproject(worldcamera)
+    ecs.emit('pointer click', null, {
+      client2D: new three.Vector2(e.clientX, e.clientY),
+      client3D: client3D
+    })
   }
 
   ecs.on('init', () => {
@@ -62413,6 +62410,8 @@ inject('pod', () => {
 
 },{"injectinto":7,"three":9,"cannon":8}],2:[function(require,module,exports) {
 const inject = require('injectinto')
+const cannon = require('cannon')
+const three = require('three')
 if (inject.oneornone('ecs')) return location.reload(true)
 const ecs = require('./ecs')()
 inject('ecs', ecs)
@@ -62428,7 +62427,6 @@ ecs.call('init')
   .then(() => ecs.call('start'))
 
 ecs.on('load', () => {
-  const cannon = require('cannon')
   const randomPosition = () => new cannon.Vec3(
     (Math.random() - 0.5) * 20,
     1 + (Math.random() - 0.5) * 1,
@@ -62458,11 +62456,21 @@ ecs.on('start', () => {
   window.requestAnimationFrame(animate)
 })
 
-ecs.on('pointer click', (id, e) => {
-  ecs.emit('load box', ecs.id(), { position: e })
+let worldcamera  = null
+ecs.on('load world camera', (id, c) => {
+  worldcamera = c
 })
 
-},{"injectinto":7,"./ecs":3,"./physics":4,"./display":5,"./controls":6,"cannon":8}],0:[function(require,module,exports) {
+ecs.on('pointer click', (id, e) => {
+  const offset = new three.Vector3(0, 0, -3)
+  const lookDirection = new three.Quaternion()
+  worldcamera.getWorldQuaternion(lookDirection)
+  offset.applyQuaternion(lookDirection)
+  offset.add(e.client3D)
+  ecs.emit('load box', ecs.id(), { position: offset })
+})
+
+},{"injectinto":7,"cannon":8,"three":9,"./ecs":3,"./physics":4,"./display":5,"./controls":6}],0:[function(require,module,exports) {
 var global = (1, eval)('this');
 var OldModule = module.bundle.Module;
 function Module() {

@@ -1,4 +1,6 @@
 const inject = require('injectinto')
+const cannon = require('cannon')
+const three = require('three')
 if (inject.oneornone('ecs')) return location.reload(true)
 const ecs = require('./ecs')()
 inject('ecs', ecs)
@@ -14,7 +16,6 @@ ecs.call('init')
   .then(() => ecs.call('start'))
 
 ecs.on('load', () => {
-  const cannon = require('cannon')
   const randomPosition = () => new cannon.Vec3(
     (Math.random() - 0.5) * 20,
     1 + (Math.random() - 0.5) * 1,
@@ -44,6 +45,16 @@ ecs.on('start', () => {
   window.requestAnimationFrame(animate)
 })
 
+let worldcamera  = null
+ecs.on('load world camera', (id, c) => {
+  worldcamera = c
+})
+
 ecs.on('pointer click', (id, e) => {
-  ecs.emit('load box', ecs.id(), { position: e })
+  const offset = new three.Vector3(0, 0, -3)
+  const lookDirection = new three.Quaternion()
+  worldcamera.getWorldQuaternion(lookDirection)
+  offset.applyQuaternion(lookDirection)
+  offset.add(e.client3D)
+  ecs.emit('load box', ecs.id(), { position: offset })
 })

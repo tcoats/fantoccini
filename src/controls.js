@@ -29,18 +29,15 @@ inject('pod', () => {
   const onkeydown = (e) => pressed[e.keyCode] = true
   const onkeyup = (e) => pressed[e.keyCode] = false
   const onclick = (e) => {
-    const mouse3D = new three.Vector3(
+    const client3D = new three.Vector3(
       (e.clientX / canvas.width) * 2 - 1,
       -(e.clientY / canvas.height) * 2 + 1,
       0)
-    mouse3D.unproject(worldcamera)
-    // calculate z offset
-    const offset = new three.Vector3(0, 0, -3)
-    const lookDirection = new three.Quaternion()
-    camera.head.getWorldQuaternion(lookDirection)
-    offset.applyQuaternion(lookDirection)
-    mouse3D.add(offset)
-    ecs.emit('pointer click', null, mouse3D)
+    client3D.unproject(worldcamera)
+    ecs.emit('pointer click', null, {
+      client2D: new three.Vector2(e.clientX, e.clientY),
+      client3D: client3D
+    })
   }
 
   ecs.on('init', () => {
