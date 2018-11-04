@@ -52,10 +52,7 @@ inject('pod', () => {
     box.shape = new cannon.Box(halfExtents)
     box.body = new cannon.Body({ mass: 5 })
     box.body.addShape(box.shape)
-    box.body.position.set(
-      (Math.random() - 0.5) * 20,
-      1 + (Math.random() - 0.5) * 1,
-      (Math.random() - 0.5) * 20)
+    box.body.position.copy(box.position)
     world.addBody(box.body)
     entities[id] = box
   })

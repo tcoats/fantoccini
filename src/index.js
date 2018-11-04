@@ -14,14 +14,20 @@ ecs.call('init')
   .then(() => ecs.call('start'))
 
 ecs.on('load', () => {
+  const cannon = require('cannon')
+  const randomPosition = () => new cannon.Vec3(
+    (Math.random() - 0.5) * 20,
+    1 + (Math.random() - 0.5) * 1,
+    (Math.random() - 0.5) * 20)
   ecs.emit('load ground', ecs.id(), {})
   ecs.emit('load player', ecs.id(), {})
-  ecs.emit('load box', ecs.id(), {})
-  ecs.emit('load box', ecs.id(), {})
-  ecs.emit('load box', ecs.id(), {})
-  ecs.emit('load box', ecs.id(), {})
-  ecs.emit('load box', ecs.id(), {})
-  ecs.emit('load box', ecs.id(), {})
+  ecs.emit('load box', ecs.id(), { position: randomPosition() })
+  ecs.emit('load box', ecs.id(), { position: randomPosition() })
+  ecs.emit('load box', ecs.id(), { position: randomPosition() })
+  ecs.emit('load box', ecs.id(), { position: randomPosition() })
+  ecs.emit('load box', ecs.id(), { position: randomPosition() })
+  ecs.emit('load box', ecs.id(), { position: randomPosition() })
+  ecs.emit('load box', ecs.id(), { position: randomPosition() })
 })
 
 ecs.on('start', () => {

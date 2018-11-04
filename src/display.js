@@ -11,6 +11,7 @@ inject('pod', () => {
   let camera = null
   let scene = null
   let renderer = null
+  let axislegend = null
 
   ecs.on('init', () => {
     camera = new three.PerspectiveCamera(75, canvas.width / canvas.height, 0.1, 1000)
@@ -37,6 +38,13 @@ inject('pod', () => {
     renderer.shadowMapSoft = true
     renderer.setSize(645, 405)
     renderer.setClearColor(scene.fog.color, 1)
+
+    axislegend = new three.AxesHelper(1)
+    scene.add(axislegend)
+  })
+
+  ecs.on('load', () => {
+    ecs.emit('load camera', null, camera)
   })
 
   ecs.on('load ground', (id, ground) => {

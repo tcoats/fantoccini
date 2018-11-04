@@ -13938,10 +13938,7 @@ inject('pod', () => {
     box.shape = new cannon.Box(halfExtents)
     box.body = new cannon.Body({ mass: 5 })
     box.body.addShape(box.shape)
-    box.body.position.set(
-      (Math.random() - 0.5) * 20,
-      1 + (Math.random() - 0.5) * 1,
-      (Math.random() - 0.5) * 20)
+    box.body.position.copy(box.position)
     world.addBody(box.body)
     entities[id] = box
   })
@@ -62233,6 +62230,7 @@ inject('pod', () => {
   let camera = null
   let scene = null
   let renderer = null
+  let axislegend = null
 
   ecs.on('init', () => {
     camera = new three.PerspectiveCamera(75, canvas.width / canvas.height, 0.1, 1000)
@@ -62259,6 +62257,13 @@ inject('pod', () => {
     renderer.shadowMapSoft = true
     renderer.setSize(645, 405)
     renderer.setClearColor(scene.fog.color, 1)
+
+    axislegend = new three.AxesHelper(1)
+    scene.add(axislegend)
+  })
+
+  ecs.on('load', () => {
+    ecs.emit('load camera', null, camera)
   })
 
   ecs.on('load ground', (id, ground) => {
@@ -62304,11 +62309,12 @@ inject('pod', () => {
 const inject = require('injectinto')
 inject('pod', () => {
   const ecs = inject.one('ecs')
-  const THREE = require('three')
-  const CANNON = require('cannon')
-  const canvas = document.getElementById('root')
+  const three = require('three')
+  const cannon = require('cannon')
 
   let player = null
+  let camera = null
+  let islocked = false
 
   let movementX = 0
   let movementY = 0
@@ -62333,33 +62339,60 @@ inject('pod', () => {
   const onkeyup = (e) => pressed[e.keyCode] = false
 
   ecs.on('init', () => {
-    canvas.onclick = (e) => canvas.requestPointerLock()
+    const canvas = document.getElementById('root')
+    canvas.addEventListener('click', (e) => {
+      if (!islocked) canvas.requestPointerLock()
+      else {
+        const mouse3D = new three.Vector3(
+          (e.clientX / canvas.width) * 2 - 1,
+          -( e.clientY / canvas.height ) * 2 + 1,
+          0)
+        mouse3D.unproject(camera)
+        // calculate z offset
+        const offset = new three.Vector3(0, 0, -3)
+        const lookDirection = new three.Quaternion()
+        player.head.getWorldQuaternion(lookDirection)
+        offset.applyQuaternion(lookDirection)
+        mouse3D.add(offset)
+        ecs.emit('pointer click', null, mouse3D)
+      }
+    })
     document.addEventListener('pointerlockchange', () => {
       if (document.pointerLockElement === canvas) ecs.emit('pointer captured')
       else ecs.emit('pointer released')
     })
   })
 
+  ecs.on('pointer click', (id, e) => {
+    ecs.emit('load box', ecs.id(), { position: e })
+  })
+
   ecs.on('pointer captured', () => {
+    islocked = true
     document.addEventListener('mousemove', onmove)
     document.addEventListener('keydown', onkeydown)
     document.addEventListener('keyup', onkeyup)
   })
 
   ecs.on('pointer released', () => {
+    islocked = false
     document.removeEventListener('mousemove', onmove)
     document.removeEventListener('keydown', onkeydown)
     document.removeEventListener('keyup', onkeyup)
   })
 
+  ecs.on('load camera', (id, c) => {
+    camera = c
+  })
+
   ecs.on('load player', (id, p) => {
     player = p
     player.physics.addEventListener('collide', (e) => {
-      let contactNormal = new CANNON.Vec3()
+      let contactNormal = new cannon.Vec3()
       if (e.contact.bi.id == player.physics.id) e.contact.ni.negate(contactNormal)
       else contactNormal.copy(e.contact.ni)
       // todo = better jumping logic
-      if (contactNormal.dot(new CANNON.Vec3(0,1,0)) > 0.5) canJump = true
+      if (contactNormal.dot(new cannon.Vec3(0,1,0)) > 0.5) canJump = true
     })
   })
 
@@ -62372,10 +62405,7 @@ inject('pod', () => {
     player.head.rotation.x -= movementY * mouseSensitivity
     player.head.rotation.x = Math.min(Math.PI / 2, player.head.rotation.x)
     player.head.rotation.x = Math.max(-Math.PI / 2, player.head.rotation.x)
-    const lookDirection = new THREE.Quaternion()
-    lookDirection.setFromEuler(
-      new THREE.Euler(0, player.body.rotation.y, 0, 'XYZ'))
-    const impulse = new THREE.Vector3(
+    const impulse = new three.Vector3(
       Number(pressed[keys.right]) - Number(pressed[keys.left]),
       Number(pressed[keys.up]) - Number(pressed[keys.down]),
       Number(pressed[keys.backward]) - Number(pressed[keys.forward]))
@@ -62385,7 +62415,7 @@ inject('pod', () => {
       impulse.y = 20
       canJump = false
     }
-    impulse.applyQuaternion(lookDirection)
+    impulse.applyQuaternion(player.body.quaternion)
     player.physics.velocity.x += impulse.x
     player.physics.velocity.y += impulse.y
     player.physics.velocity.z += impulse.z
@@ -62412,14 +62442,20 @@ ecs.call('init')
   .then(() => ecs.call('start'))
 
 ecs.on('load', () => {
+  const cannon = require('cannon')
+  const randomPosition = () => new cannon.Vec3(
+    (Math.random() - 0.5) * 20,
+    1 + (Math.random() - 0.5) * 1,
+    (Math.random() - 0.5) * 20)
   ecs.emit('load ground', ecs.id(), {})
   ecs.emit('load player', ecs.id(), {})
-  ecs.emit('load box', ecs.id(), {})
-  ecs.emit('load box', ecs.id(), {})
-  ecs.emit('load box', ecs.id(), {})
-  ecs.emit('load box', ecs.id(), {})
-  ecs.emit('load box', ecs.id(), {})
-  ecs.emit('load box', ecs.id(), {})
+  ecs.emit('load box', ecs.id(), { position: randomPosition() })
+  ecs.emit('load box', ecs.id(), { position: randomPosition() })
+  ecs.emit('load box', ecs.id(), { position: randomPosition() })
+  ecs.emit('load box', ecs.id(), { position: randomPosition() })
+  ecs.emit('load box', ecs.id(), { position: randomPosition() })
+  ecs.emit('load box', ecs.id(), { position: randomPosition() })
+  ecs.emit('load box', ecs.id(), { position: randomPosition() })
 })
 
 ecs.on('start', () => {
@@ -62436,7 +62472,7 @@ ecs.on('start', () => {
   window.requestAnimationFrame(animate)
 })
 
-},{"injectinto":7,"./ecs":3,"./physics":4,"./display":5,"./controls":6}],0:[function(require,module,exports) {
+},{"injectinto":7,"./ecs":3,"./physics":4,"./display":5,"./controls":6,"cannon":8}],0:[function(require,module,exports) {
 var global = (1, eval)('this');
 var OldModule = module.bundle.Module;
 function Module() {
@@ -62454,7 +62490,7 @@ function Module() {
 module.bundle.Module = Module;
 
 if (!module.bundle.parent) {
-  var ws = new WebSocket('ws://localhost:53398/');
+  var ws = new WebSocket('ws://localhost:60827/');
   ws.onmessage = function(event) {
     var data = JSON.parse(event.data);
 
