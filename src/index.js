@@ -46,9 +46,7 @@ ecs.on('start', () => {
 })
 
 let worldcamera  = null
-ecs.on('load world camera', (id, c) => {
-  worldcamera = c
-})
+ecs.on('load world camera', (id, c) => worldcamera = c)
 
 ecs.on('pointer click', (id, e) => {
   const offset = new three.Vector3(0, 0, -3)

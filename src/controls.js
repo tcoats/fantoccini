@@ -28,14 +28,17 @@ inject('pod', () => {
   }
   const onkeydown = (e) => pressed[e.keyCode] = true
   const onkeyup = (e) => pressed[e.keyCode] = false
+  const client2D = new three.Vector2()
+  const client3D = new three.Vector3()
   const onclick = (e) => {
-    const client3D = new three.Vector3(
+    client2D.set(e.clientX, e.clientY)
+    client3D.set(
       (e.clientX / canvas.width) * 2 - 1,
       -(e.clientY / canvas.height) * 2 + 1,
       0)
     client3D.unproject(worldcamera)
     ecs.emit('pointer click', null, {
-      client2D: new three.Vector2(e.clientX, e.clientY),
+      client2D: client2D,
       client3D: client3D
     })
   }
@@ -65,15 +68,11 @@ inject('pod', () => {
     document.removeEventListener('keyup', onkeyup)
   })
 
-  ecs.on('load world camera', (id, c) => {
-    worldcamera = c
-  })
-
-  ecs.on('load camera', (id, p) => {
-    camera = p
-  })
+  ecs.on('load world camera', (id, c) => worldcamera = c)
+  ecs.on('load camera', (id, p) => camera = p)
 
   let frame = 0
+  const impulse = new three.Vector3()
   ecs.on('event delta', (id, dt) => {
     frame++
     if (!camera) return
@@ -82,7 +81,7 @@ inject('pod', () => {
     camera.head.rotation.x -= movementY * mouseSensitivity
     camera.head.rotation.x = Math.min(Math.PI / 2, camera.head.rotation.x)
     camera.head.rotation.x = Math.max(-Math.PI / 2, camera.head.rotation.x)
-    const impulse = new three.Vector3(
+    impulse.set(
       Number(pressed[keys.right]) - Number(pressed[keys.left]),
       Number(pressed[keys.up]) - Number(pressed[keys.down]),
       Number(pressed[keys.backward]) - Number(pressed[keys.forward]))
