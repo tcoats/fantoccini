@@ -2,7 +2,7 @@
 
 ## Editor
 - [x] Create boxes
-- [ ] Editor 3rd person camera
+- [x] Editor 3rd person camera
 - [x] Axis legend
 - [ ] Pause / play
 - [ ] Mouse select

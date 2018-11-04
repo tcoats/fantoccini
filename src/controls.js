@@ -11,16 +11,14 @@ inject('pod', () => {
 
   let movementX = 0
   let movementY = 0
-  let canJump = false
   const pressed = {}
   const keys = {
     forward: 87,
     backward: 83,
     left: 65,
     right: 68,
-    up: 81,
-    down: 69,
-    jump: 32
+    up: 32,
+    down: 16
   }
   for (let key of Object.values(keys)) pressed[key] = false
 
@@ -93,6 +91,7 @@ inject('pod', () => {
       Number(pressed[keys.backward]) - Number(pressed[keys.forward]))
     if (frame % 60 == 0) {}
     impulse.multiplyScalar(0.01 * dt)
+    impulse.applyQuaternion(camera.head.quaternion)
     impulse.applyQuaternion(camera.body.quaternion)
     camera.body.position.add(impulse)
     movementX = 0
