@@ -8,6 +8,7 @@ inject('ecs', ecs)
 require('./physics')
 require('./display')
 require('./controls')
+require('./ui')
 
 for (let pod of inject.many('pod')) pod()
 

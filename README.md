@@ -1,9 +1,7 @@
 # Fantoccini
 
 ## Editor
-- [x] Create boxes
-- [x] Editor 3rd person camera
-- [x] Axis legend
+- [ ] HTML overlay
 - [ ] Pause / play
 - [ ] Mouse select
 - [ ] Create and edit boxes

@@ -5,7 +5,7 @@ const inject = require('injectinto')
 inject('pod', () => {
   const ecs = inject.one('ecs')
   const three = require('three')
-  const canvas = document.getElementById('root')
+  const canvas = document.getElementById('canvas')
 
   let entities = {}
   let world = null
@@ -34,6 +34,7 @@ inject('pod', () => {
     light.shadow.mapSize.width = 2 * 512
     light.shadow.mapSize.height = 2 * 512
     world.add(light)
+    // world.add(new three.AxesHelper(1))
 
     renderer = new three.WebGLRenderer({ canvas: canvas })
     renderer.shadowMap.enabled = true

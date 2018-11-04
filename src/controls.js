@@ -3,7 +3,8 @@ inject('pod', () => {
   const ecs = inject.one('ecs')
   const three = require('three')
   const cannon = require('cannon')
-  const canvas = document.getElementById('root')
+  const canvas = document.getElementById('canvas')
+  const root = document.getElementById('root')
 
   let camera = null
   let worldcamera = null
@@ -44,12 +45,12 @@ inject('pod', () => {
   }
 
   ecs.on('init', () => {
-    canvas.addEventListener('click', (e) => {
-      if (!islocked) canvas.requestPointerLock()
+    root.addEventListener('click', (e) => {
+      if (!islocked) root.requestPointerLock()
       else onclick(e)
     })
     document.addEventListener('pointerlockchange', () => {
-      if (document.pointerLockElement === canvas) ecs.emit('pointer captured')
+      if (document.pointerLockElement === root) ecs.emit('pointer captured')
       else ecs.emit('pointer released')
     })
   })
