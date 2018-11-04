@@ -1,7 +1,7 @@
 # Fantoccini
 
 ## Editor
-- [ ] HTML overlay
+- [x] HTML overlay
 - [ ] Pause / play
 - [ ] Mouse select
 - [ ] Create and edit boxes

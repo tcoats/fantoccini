@@ -63294,18 +63294,12 @@ var _index2 = _interopRequireDefault(_index);
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
 const inject = require('injectinto');
-const three = require('three');
-
-const patch = require('snabbdom').init([require('snabbdom/modules/class').default, require('snabbdom/modules/props').default, require('snabbdom/modules/attributes').default, require('snabbdom/modules/style').default, require('snabbdom/modules/eventlisteners').default]);
-const canvas = document.getElementById('canvas');
-let current = document.querySelector('#root');
-const update = next => {
-  patch(current, next);
-  current = next;
-};
 
 inject('pod', () => {
   const ecs = inject.one('ecs');
+  const three = require('three');
+  const patch = require('snabbdom').init([require('snabbdom/modules/class').default, require('snabbdom/modules/props').default, require('snabbdom/modules/attributes').default, require('snabbdom/modules/style').default, require('snabbdom/modules/eventlisteners').default]);
+  const canvas = document.getElementById('canvas');
   let frame = 0;
 
   let worldcamera = null;
@@ -63317,7 +63311,7 @@ inject('pod', () => {
   const ui = (state, params, ecs) => {
     const elements = [];
 
-    elements.push([zero, h('div.test', '(0, 0, 0')]);
+    elements.push([zero, h('div.test', '(0, 0, 0)')]);
 
     return h('div#root', elements.map(e => {
       origin.copy(e[0]);
@@ -63331,9 +63325,12 @@ inject('pod', () => {
 
   let state = {};
   let params = {};
+  let current = document.querySelector('#root');
   ecs.on('display delta', (id, dt) => {
     frame++;
-    update(ui(state, params, ecs));
+    const next = ui(state, params, ecs);
+    patch(current, next);
+    current = next;
   });
 });
 },{"./index.styl":11,"injectinto":7,"three":9,"snabbdom":12,"snabbdom/modules/class":19,"snabbdom/modules/props":15,"snabbdom/modules/attributes":17,"snabbdom/modules/style":16,"snabbdom/modules/eventlisteners":18,"snabbdom/h":14}],2:[function(require,module,exports) {

@@ -1,23 +1,17 @@
 import classes from './index.styl'
 const inject = require('injectinto')
-const three = require('three')
-
-const patch = require('snabbdom').init([
-  require('snabbdom/modules/class').default,
-  require('snabbdom/modules/props').default,
-  require('snabbdom/modules/attributes').default,
-  require('snabbdom/modules/style').default,
-  require('snabbdom/modules/eventlisteners').default,
-])
-const canvas = document.getElementById('canvas')
-let current = document.querySelector('#root')
-const update = (next) => {
-  patch(current, next)
-  current = next
-}
 
 inject('pod', () => {
   const ecs = inject.one('ecs')
+  const three = require('three')
+  const patch = require('snabbdom').init([
+    require('snabbdom/modules/class').default,
+    require('snabbdom/modules/props').default,
+    require('snabbdom/modules/attributes').default,
+    require('snabbdom/modules/style').default,
+    require('snabbdom/modules/eventlisteners').default,
+  ])
+  const canvas = document.getElementById('canvas')
   let frame = 0
 
   let worldcamera  = null
@@ -29,7 +23,7 @@ inject('pod', () => {
   const ui = (state, params, ecs) => {
     const elements = []
 
-    elements.push([zero, h('div.test', '(0, 0, 0')])
+    elements.push([zero, h('div.test', '(0, 0, 0)')])
 
     return h('div#root', elements.map(e => {
       origin.copy(e[0])
@@ -43,8 +37,11 @@ inject('pod', () => {
 
   let state = {}
   let params = {}
+  let current = document.querySelector('#root')
   ecs.on('display delta', (id, dt) => {
     frame++
-    update(ui(state, params, ecs))
+    const next = ui(state, params, ecs)
+    patch(current, next)
+    current = next
   })
 })
