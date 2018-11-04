@@ -5,8 +5,8 @@ inject('pod', () => {
   const cannon = require('cannon')
   const canvas = document.getElementById('root')
 
-  let player = null
   let camera = null
+  let worldcamera = null
   let islocked = false
 
   let movementX = 0
@@ -35,11 +35,11 @@ inject('pod', () => {
       (e.clientX / canvas.width) * 2 - 1,
       -(e.clientY / canvas.height) * 2 + 1,
       0)
-    mouse3D.unproject(camera)
+    mouse3D.unproject(worldcamera)
     // calculate z offset
     const offset = new three.Vector3(0, 0, -3)
     const lookDirection = new three.Quaternion()
-    player.head.getWorldQuaternion(lookDirection)
+    camera.head.getWorldQuaternion(lookDirection)
     offset.applyQuaternion(lookDirection)
     mouse3D.add(offset)
     ecs.emit('pointer click', null, mouse3D)
@@ -70,45 +70,31 @@ inject('pod', () => {
     document.removeEventListener('keyup', onkeyup)
   })
 
-  ecs.on('load camera', (id, c) => {
-    camera = c
+  ecs.on('load world camera', (id, c) => {
+    worldcamera = c
   })
 
-  ecs.on('load player', (id, p) => {
-    player = p
-    player.physics.addEventListener('collide', (e) => {
-      let contactNormal = new cannon.Vec3()
-      if (e.contact.bi.id == player.physics.id) e.contact.ni.negate(contactNormal)
-      else contactNormal.copy(e.contact.ni)
-      // todo = better jumping logic
-      if (contactNormal.dot(new cannon.Vec3(0,1,0)) > 0.5) canJump = true
-    })
+  ecs.on('load camera', (id, p) => {
+    camera = p
   })
 
   let frame = 0
   ecs.on('event delta', (id, dt) => {
     frame++
-    if (!player) return
+    if (!camera) return
     const mouseSensitivity = 0.002
-    player.body.rotation.y -= movementX * mouseSensitivity
-    player.head.rotation.x -= movementY * mouseSensitivity
-    player.head.rotation.x = Math.min(Math.PI / 2, player.head.rotation.x)
-    player.head.rotation.x = Math.max(-Math.PI / 2, player.head.rotation.x)
+    camera.body.rotation.y -= movementX * mouseSensitivity
+    camera.head.rotation.x -= movementY * mouseSensitivity
+    camera.head.rotation.x = Math.min(Math.PI / 2, camera.head.rotation.x)
+    camera.head.rotation.x = Math.max(-Math.PI / 2, camera.head.rotation.x)
     const impulse = new three.Vector3(
       Number(pressed[keys.right]) - Number(pressed[keys.left]),
       Number(pressed[keys.up]) - Number(pressed[keys.down]),
       Number(pressed[keys.backward]) - Number(pressed[keys.forward]))
     if (frame % 60 == 0) {}
-    impulse.multiplyScalar(0.02 * dt)
-    if (pressed[keys.jump] && canJump) {
-      impulse.y = 20
-      canJump = false
-    }
-    impulse.applyQuaternion(player.body.quaternion)
-    player.physics.velocity.x += impulse.x
-    player.physics.velocity.y += impulse.y
-    player.physics.velocity.z += impulse.z
-    player.body.position.copy(player.physics.position)
+    impulse.multiplyScalar(0.01 * dt)
+    impulse.applyQuaternion(camera.body.quaternion)
+    camera.body.position.add(impulse)
     movementX = 0
     movementY = 0
   })

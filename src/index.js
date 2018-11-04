@@ -20,7 +20,7 @@ ecs.on('load', () => {
     1 + (Math.random() - 0.5) * 1,
     (Math.random() - 0.5) * 20)
   ecs.emit('load ground', ecs.id(), {})
-  ecs.emit('load player', ecs.id(), {})
+  ecs.emit('load camera', ecs.id(), {})
   ecs.emit('load box', ecs.id(), { position: randomPosition() })
   ecs.emit('load box', ecs.id(), { position: randomPosition() })
   ecs.emit('load box', ecs.id(), { position: randomPosition() })

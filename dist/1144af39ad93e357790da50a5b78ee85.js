@@ -13924,15 +13924,6 @@ inject('pod', () => {
     // entities[id] = ground
   })
 
-  ecs.on('load player', (id, player) => {
-    player.shape = new cannon.Sphere(1.3)
-    player.physics = new cannon.Body({ mass: 5 })
-    player.physics.addShape(player.shape)
-    player.physics.position.set(0, 5, 0)
-    player.physics.linearDamping = 0.9
-    world.addBody(player.physics)
-  })
-
   ecs.on('load box', (id, box) => {
     const halfExtents = new cannon.Vec3(1, 1, 1)
     box.shape = new cannon.Box(halfExtents)
@@ -62227,21 +62218,20 @@ inject('pod', () => {
   const canvas = document.getElementById('root')
 
   let entities = {}
-  let camera = null
-  let scene = null
+  let world = null
   let renderer = null
-
+  let worldcamera = null
   let axiscamera = null
   let axisscene = null
-  let axislegend = null
 
   ecs.on('init', () => {
-    camera = new three.PerspectiveCamera(75, canvas.width / canvas.height, 0.1, 1000)
-    scene = new three.Scene()
+    worldcamera = new three.PerspectiveCamera(
+      75, canvas.width / canvas.height, 0.1, 1000)
+    world = new three.Scene()
     material = new three.MeshLambertMaterial({ color: 0xdddddd })
-    scene.fog = new three.Fog(0x000000, 0, 500)
+    world.fog = new three.Fog(0x000000, 0, 500)
     const ambient = new three.AmbientLight(0x111111)
-    scene.add(ambient)
+    world.add(ambient)
     light = new three.SpotLight(0xffffff)
     light.position.set(10, 30, 20)
     light.target.position.set(0, 0, 0)
@@ -62253,7 +62243,7 @@ inject('pod', () => {
     light.shadowMapDarkness = 0.7
     light.shadow.mapSize.width = 2 * 512
     light.shadow.mapSize.height = 2 * 512
-    scene.add(light)
+    world.add(light)
 
     renderer = new three.WebGLRenderer({ canvas: canvas })
     renderer.shadowMap.enabled = true
@@ -62269,7 +62259,7 @@ inject('pod', () => {
   })
 
   ecs.on('load', () => {
-    ecs.emit('load camera', null, camera)
+    ecs.emit('load world camera', null, worldcamera)
   })
 
   ecs.on('load ground', (id, ground) => {
@@ -62278,17 +62268,17 @@ inject('pod', () => {
     ground.mesh = new three.Mesh(ground.geometry, material)
     ground.mesh.castShadow = true
     ground.mesh.receiveShadow = true
-    scene.add(ground.mesh)
+    world.add(ground.mesh)
     entities[id] = ground
   })
 
-  ecs.on('load player', (id, player) => {
-    player.body = new three.Object3D()
-    scene.add(player.body)
-    player.head = new three.Object3D()
-    player.head.add(camera)
-    player.body.position.y = 2
-    player.body.add(player.head)
+  ecs.on('load camera', (id, camera) => {
+    camera.body = new three.Object3D()
+    world.add(camera.body)
+    camera.head = new three.Object3D()
+    camera.head.add(worldcamera)
+    camera.body.position.y = 2
+    camera.body.add(camera.head)
   })
 
   ecs.on('load box', (id, box) => {
@@ -62296,7 +62286,7 @@ inject('pod', () => {
     box.geometry = new three.BoxGeometry(
       halfExtents.x * 2, halfExtents.y * 2, halfExtents.z * 2)
     box.mesh = new three.Mesh(box.geometry, material)
-    scene.add(box.mesh)
+    world.add(box.mesh)
     box.mesh.castShadow = true
     box.mesh.receiveShadow = true
     entities[id] = box
@@ -62307,12 +62297,12 @@ inject('pod', () => {
   })
 
   ecs.on('display delta', (id, dt) => {
-    camera.getWorldQuaternion(axiscamera.quaternion)
+    worldcamera.getWorldQuaternion(axiscamera.quaternion)
     axiscamera.position.set(0, 0, 1)
     axiscamera.position.applyQuaternion(axiscamera.quaternion)
     renderer.clear(true, true, true)
     renderer.setViewport(0, 0, canvas.width, canvas.height)
-    renderer.render(scene, camera)
+    renderer.render(world, worldcamera)
     renderer.clear(false, true, false)
     renderer.setViewport(0, 0, 100, 100)
     renderer.render(axisscene, axiscamera)
@@ -62327,8 +62317,8 @@ inject('pod', () => {
   const cannon = require('cannon')
   const canvas = document.getElementById('root')
 
-  let player = null
   let camera = null
+  let worldcamera = null
   let islocked = false
 
   let movementX = 0
@@ -62357,11 +62347,11 @@ inject('pod', () => {
       (e.clientX / canvas.width) * 2 - 1,
       -(e.clientY / canvas.height) * 2 + 1,
       0)
-    mouse3D.unproject(camera)
+    mouse3D.unproject(worldcamera)
     // calculate z offset
     const offset = new three.Vector3(0, 0, -3)
     const lookDirection = new three.Quaternion()
-    player.head.getWorldQuaternion(lookDirection)
+    camera.head.getWorldQuaternion(lookDirection)
     offset.applyQuaternion(lookDirection)
     mouse3D.add(offset)
     ecs.emit('pointer click', null, mouse3D)
@@ -62392,45 +62382,31 @@ inject('pod', () => {
     document.removeEventListener('keyup', onkeyup)
   })
 
-  ecs.on('load camera', (id, c) => {
-    camera = c
+  ecs.on('load world camera', (id, c) => {
+    worldcamera = c
   })
 
-  ecs.on('load player', (id, p) => {
-    player = p
-    player.physics.addEventListener('collide', (e) => {
-      let contactNormal = new cannon.Vec3()
-      if (e.contact.bi.id == player.physics.id) e.contact.ni.negate(contactNormal)
-      else contactNormal.copy(e.contact.ni)
-      // todo = better jumping logic
-      if (contactNormal.dot(new cannon.Vec3(0,1,0)) > 0.5) canJump = true
-    })
+  ecs.on('load camera', (id, p) => {
+    camera = p
   })
 
   let frame = 0
   ecs.on('event delta', (id, dt) => {
     frame++
-    if (!player) return
+    if (!camera) return
     const mouseSensitivity = 0.002
-    player.body.rotation.y -= movementX * mouseSensitivity
-    player.head.rotation.x -= movementY * mouseSensitivity
-    player.head.rotation.x = Math.min(Math.PI / 2, player.head.rotation.x)
-    player.head.rotation.x = Math.max(-Math.PI / 2, player.head.rotation.x)
+    camera.body.rotation.y -= movementX * mouseSensitivity
+    camera.head.rotation.x -= movementY * mouseSensitivity
+    camera.head.rotation.x = Math.min(Math.PI / 2, camera.head.rotation.x)
+    camera.head.rotation.x = Math.max(-Math.PI / 2, camera.head.rotation.x)
     const impulse = new three.Vector3(
       Number(pressed[keys.right]) - Number(pressed[keys.left]),
       Number(pressed[keys.up]) - Number(pressed[keys.down]),
       Number(pressed[keys.backward]) - Number(pressed[keys.forward]))
     if (frame % 60 == 0) {}
-    impulse.multiplyScalar(0.02 * dt)
-    if (pressed[keys.jump] && canJump) {
-      impulse.y = 20
-      canJump = false
-    }
-    impulse.applyQuaternion(player.body.quaternion)
-    player.physics.velocity.x += impulse.x
-    player.physics.velocity.y += impulse.y
-    player.physics.velocity.z += impulse.z
-    player.body.position.copy(player.physics.position)
+    impulse.multiplyScalar(0.01 * dt)
+    impulse.applyQuaternion(camera.body.quaternion)
+    camera.body.position.add(impulse)
     movementX = 0
     movementY = 0
   })
@@ -62459,7 +62435,7 @@ ecs.on('load', () => {
     1 + (Math.random() - 0.5) * 1,
     (Math.random() - 0.5) * 20)
   ecs.emit('load ground', ecs.id(), {})
-  ecs.emit('load player', ecs.id(), {})
+  ecs.emit('load camera', ecs.id(), {})
   ecs.emit('load box', ecs.id(), { position: randomPosition() })
   ecs.emit('load box', ecs.id(), { position: randomPosition() })
   ecs.emit('load box', ecs.id(), { position: randomPosition() })

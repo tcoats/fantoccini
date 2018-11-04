@@ -38,15 +38,6 @@ inject('pod', () => {
     // entities[id] = ground
   })
 
-  ecs.on('load player', (id, player) => {
-    player.shape = new cannon.Sphere(1.3)
-    player.physics = new cannon.Body({ mass: 5 })
-    player.physics.addShape(player.shape)
-    player.physics.position.set(0, 5, 0)
-    player.physics.linearDamping = 0.9
-    world.addBody(player.physics)
-  })
-
   ecs.on('load box', (id, box) => {
     const halfExtents = new cannon.Vec3(1, 1, 1)
     box.shape = new cannon.Box(halfExtents)

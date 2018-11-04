@@ -8,21 +8,20 @@ inject('pod', () => {
   const canvas = document.getElementById('root')
 
   let entities = {}
-  let camera = null
-  let scene = null
+  let world = null
   let renderer = null
-
+  let worldcamera = null
   let axiscamera = null
   let axisscene = null
-  let axislegend = null
 
   ecs.on('init', () => {
-    camera = new three.PerspectiveCamera(75, canvas.width / canvas.height, 0.1, 1000)
-    scene = new three.Scene()
+    worldcamera = new three.PerspectiveCamera(
+      75, canvas.width / canvas.height, 0.1, 1000)
+    world = new three.Scene()
     material = new three.MeshLambertMaterial({ color: 0xdddddd })
-    scene.fog = new three.Fog(0x000000, 0, 500)
+    world.fog = new three.Fog(0x000000, 0, 500)
     const ambient = new three.AmbientLight(0x111111)
-    scene.add(ambient)
+    world.add(ambient)
     light = new three.SpotLight(0xffffff)
     light.position.set(10, 30, 20)
     light.target.position.set(0, 0, 0)
@@ -34,7 +33,7 @@ inject('pod', () => {
     light.shadowMapDarkness = 0.7
     light.shadow.mapSize.width = 2 * 512
     light.shadow.mapSize.height = 2 * 512
-    scene.add(light)
+    world.add(light)
 
     renderer = new three.WebGLRenderer({ canvas: canvas })
     renderer.shadowMap.enabled = true
@@ -50,7 +49,7 @@ inject('pod', () => {
   })
 
   ecs.on('load', () => {
-    ecs.emit('load camera', null, camera)
+    ecs.emit('load world camera', null, worldcamera)
   })
 
   ecs.on('load ground', (id, ground) => {
@@ -59,17 +58,17 @@ inject('pod', () => {
     ground.mesh = new three.Mesh(ground.geometry, material)
     ground.mesh.castShadow = true
     ground.mesh.receiveShadow = true
-    scene.add(ground.mesh)
+    world.add(ground.mesh)
     entities[id] = ground
   })
 
-  ecs.on('load player', (id, player) => {
-    player.body = new three.Object3D()
-    scene.add(player.body)
-    player.head = new three.Object3D()
-    player.head.add(camera)
-    player.body.position.y = 2
-    player.body.add(player.head)
+  ecs.on('load camera', (id, camera) => {
+    camera.body = new three.Object3D()
+    world.add(camera.body)
+    camera.head = new three.Object3D()
+    camera.head.add(worldcamera)
+    camera.body.position.y = 2
+    camera.body.add(camera.head)
   })
 
   ecs.on('load box', (id, box) => {
@@ -77,7 +76,7 @@ inject('pod', () => {
     box.geometry = new three.BoxGeometry(
       halfExtents.x * 2, halfExtents.y * 2, halfExtents.z * 2)
     box.mesh = new three.Mesh(box.geometry, material)
-    scene.add(box.mesh)
+    world.add(box.mesh)
     box.mesh.castShadow = true
     box.mesh.receiveShadow = true
     entities[id] = box
@@ -88,12 +87,12 @@ inject('pod', () => {
   })
 
   ecs.on('display delta', (id, dt) => {
-    camera.getWorldQuaternion(axiscamera.quaternion)
+    worldcamera.getWorldQuaternion(axiscamera.quaternion)
     axiscamera.position.set(0, 0, 1)
     axiscamera.position.applyQuaternion(axiscamera.quaternion)
     renderer.clear(true, true, true)
     renderer.setViewport(0, 0, canvas.width, canvas.height)
-    renderer.render(scene, camera)
+    renderer.render(world, worldcamera)
     renderer.clear(false, true, false)
     renderer.setViewport(0, 0, 100, 100)
     renderer.render(axisscene, axiscamera)
