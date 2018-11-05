@@ -65,7 +65,39 @@ require = (function (modules, cache, entry) {
 
   // Override the current require with this new one
   return newRequire;
-})({7:[function(require,module,exports) {
+})({3:[function(require,module,exports) {
+module.exports = () => {
+  const free = []
+  let counter = 0
+  const listeners = {
+    'delete': [
+      (id) => {
+        free.push(id)
+        res.emit('deleted', id)
+      }
+    ]
+  }
+  const res = {
+    id: () => {
+      if (free.length > 0) return free.pop()
+      return ++counter
+    },
+    on: (e, fn) => {
+      if (!listeners[e]) listeners[e] = []
+      listeners[e].push(fn)
+    },
+    emit: (e, id, ...args) => {
+      if (!listeners[e]) return
+      for (let listener of listeners[e]) listener(id, ...args)
+    },
+    call: (e, id, ...args) =>
+      Promise.all(!listeners[e] ? [] :
+        listeners[e].map((listener) => listener(id, ...args)))
+  }
+  return res
+}
+
+},{}],13:[function(require,module,exports) {
 const inject = () => {
   let bindings = {}
   return {
@@ -162,7 +194,7 @@ module.exports.many = (key) => _inject.many(key)
 module.exports.clear = (key) => _inject.clear(key)
 module.exports.clearAll = () => _inject.clearAll()
 
-},{}],8:[function(require,module,exports) {
+},{}],12:[function(require,module,exports) {
 var global = (1,eval)("this");
 /*
  * Copyright (c) 2015 cannon.js Authors
@@ -13851,7 +13883,74 @@ World.prototype.clearForces = function(){
 },{"../collision/AABB":3,"../collision/ArrayCollisionMatrix":4,"../collision/NaiveBroadphase":7,"../collision/Ray":9,"../collision/RaycastResult":10,"../equations/ContactEquation":19,"../equations/FrictionEquation":21,"../material/ContactMaterial":24,"../material/Material":25,"../math/Quaternion":28,"../math/Vec3":30,"../objects/Body":31,"../shapes/Shape":43,"../solver/GSSolver":46,"../utils/EventTarget":49,"../utils/TupleDictionary":52,"../utils/Vec3Pool":54,"./Narrowphase":55}]},{},[2])
 (2)
 });
-},{}],9:[function(require,module,exports) {
+},{}],4:[function(require,module,exports) {
+// http://schteppe.github.io/cannon.js/
+// http://schteppe.github.io/cannon.js/docs/
+
+const inject = require('injectinto')
+inject('pod', () => {
+  const ecs = inject.one('ecs')
+  const cannon = require('cannon')
+
+  let world = null
+  let entities = {}
+
+  ecs.on('init', () => {
+    world = new cannon.World()
+    world.quatNormalizeSkip = 0
+    world.quatNormalizeFast = false
+    const solver = new cannon.GSSolver()
+    world.defaultContactMaterial.contactEquationStiffness = 1e9
+    world.defaultContactMaterial.contactEquationRelaxation = 4
+    solver.iterations = 7
+    solver.tolerance = 0.1
+    world.solver = new cannon.SplitSolver(solver)
+    world.gravity.set(0,-9.8,0)
+    world.broadphase = new cannon.NaiveBroadphase()
+
+    const physicsMaterial = new cannon.Material('slipperyMaterial')
+    world.addContactMaterial(
+      new cannon.ContactMaterial(physicsMaterial, physicsMaterial, 0.0, 0.3))
+
+  })
+
+  ecs.on('load ground', (id, ground) => {
+    ground.shape = new cannon.Plane()
+    ground.body = new cannon.Body({ mass: 0 })
+    ground.body.addShape(ground.shape)
+    ground.body.quaternion.setFromAxisAngle(
+      new cannon.Vec3(1, 0, 0), -Math.PI / 2)
+    world.addBody(ground.body)
+    // entities[id] = ground
+  })
+
+  ecs.on('load box', (id, box) => {
+    const halfExtents = new cannon.Vec3(1, 1, 1)
+    box.shape = new cannon.Box(halfExtents)
+    box.body = new cannon.Body({ mass: 5 })
+    box.body.addShape(box.shape)
+    box.body.position.copy(box.position)
+    world.addBody(box.body)
+    entities[id] = box
+  })
+
+  ecs.on('delete', (id) => {
+    if (entities[id]) {
+      world.removeBody(entities[id])
+      delete entities[id]
+    }
+  })
+
+  ecs.on('physics delta', (id, dt) => {
+    world.step(1.0 / 60.0, dt / 1000, 3)
+    for (let shape of Object.values(entities)) {
+      shape.mesh.position.copy(shape.body.position)
+      shape.mesh.quaternion.copy(shape.body.quaternion)
+    }
+  })
+})
+
+},{"injectinto":13,"cannon":12}],14:[function(require,module,exports) {
 var global = (1,eval)("this");
 (function (global, factory) {
 	typeof exports === 'object' && typeof module !== 'undefined' ? factory(exports) :
@@ -62108,106 +62207,7 @@ var global = (1,eval)("this");
 
 })));
 
-},{}],3:[function(require,module,exports) {
-module.exports = () => {
-  const free = []
-  let counter = 0
-  const listeners = {
-    'delete': [
-      (id) => {
-        free.push(id)
-        res.emit('deleted', id)
-      }
-    ]
-  }
-  const res = {
-    id: () => {
-      if (free.length > 0) return free.pop()
-      return ++counter
-    },
-    on: (e, fn) => {
-      if (!listeners[e]) listeners[e] = []
-      listeners[e].push(fn)
-    },
-    emit: (e, id, ...args) => {
-      if (!listeners[e]) return
-      for (let listener of listeners[e]) listener(id, ...args)
-    },
-    call: (e, id, ...args) =>
-      Promise.all(!listeners[e] ? [] :
-        listeners[e].map((listener) => listener(id, ...args)))
-  }
-  return res
-}
-
-},{}],4:[function(require,module,exports) {
-// http://schteppe.github.io/cannon.js/
-// http://schteppe.github.io/cannon.js/docs/
-
-const inject = require('injectinto')
-inject('pod', () => {
-  const ecs = inject.one('ecs')
-  const cannon = require('cannon')
-
-  let world = null
-  let entities = {}
-
-  ecs.on('init', () => {
-    world = new cannon.World()
-    world.quatNormalizeSkip = 0
-    world.quatNormalizeFast = false
-    const solver = new cannon.GSSolver()
-    world.defaultContactMaterial.contactEquationStiffness = 1e9
-    world.defaultContactMaterial.contactEquationRelaxation = 4
-    solver.iterations = 7
-    solver.tolerance = 0.1
-    world.solver = new cannon.SplitSolver(solver)
-    world.gravity.set(0,-9.8,0)
-    world.broadphase = new cannon.NaiveBroadphase()
-
-    const physicsMaterial = new cannon.Material('slipperyMaterial')
-    world.addContactMaterial(
-      new cannon.ContactMaterial(physicsMaterial, physicsMaterial, 0.0, 0.3))
-
-  })
-
-  ecs.on('load ground', (id, ground) => {
-    ground.shape = new cannon.Plane()
-    ground.body = new cannon.Body({ mass: 0 })
-    ground.body.addShape(ground.shape)
-    ground.body.quaternion.setFromAxisAngle(
-      new cannon.Vec3(1, 0, 0), -Math.PI / 2)
-    world.addBody(ground.body)
-    // entities[id] = ground
-  })
-
-  ecs.on('load box', (id, box) => {
-    const halfExtents = new cannon.Vec3(1, 1, 1)
-    box.shape = new cannon.Box(halfExtents)
-    box.body = new cannon.Body({ mass: 5 })
-    box.body.addShape(box.shape)
-    box.body.position.copy(box.position)
-    world.addBody(box.body)
-    entities[id] = box
-  })
-
-  ecs.on('delete', (id) => {
-    if (entities[id]) {
-      world.removeBody(entities[id])
-      delete entities[id]
-    }
-  })
-
-  ecs.on('physics delta', (id, dt) => {
-    world.step(1.0 / 60.0, dt / 1000, 3)
-    for (let shape of Object.values(entities)) {
-      shape.mesh.position.copy(shape.body.position)
-      shape.mesh.quaternion.copy(shape.body.quaternion)
-    }
-  })
-})
-
-},{"injectinto":7,"cannon":8}],5:[function(require,module,exports) {
+},{}],5:[function(require,module,exports) {
 // https://threejs.org/
 // https://threejs.org/docs/
 
@@ -62305,12 +62305,12 @@ inject('pod', () => {
     renderer.setViewport(0, 0, canvas.width, canvas.height)
     renderer.render(world, worldcamera)
     renderer.clear(false, true, false)
-    renderer.setViewport(0, 0, 100, 100)
+    renderer.setViewport(0, canvas.height - 50, 50, 50)
     renderer.render(axisscene, axiscamera)
   })
 })
 
-},{"injectinto":7,"three":9}],6:[function(require,module,exports) {
+},{"injectinto":13,"three":14}],6:[function(require,module,exports) {
 const inject = require('injectinto')
 inject('pod', () => {
   const ecs = inject.one('ecs')
@@ -62409,7 +62409,7 @@ inject('pod', () => {
   })
 })
 
-},{"injectinto":7,"three":9,"cannon":8}],27:[function(require,module,exports) {
+},{"three":14,"injectinto":13,"cannon":12}],11:[function(require,module,exports) {
 var bundleURL = null;
 function getBundleURLCached() {
   if (!bundleURL) {
@@ -62440,7 +62440,7 @@ function getBaseURL(url) {
 exports.getBundleURL = getBundleURLCached;
 exports.getBaseURL = getBaseURL;
 
-},{}],25:[function(require,module,exports) {
+},{}],9:[function(require,module,exports) {
 var bundle = require('./bundle-url');
 
 function updateLink(link) {
@@ -62472,13 +62472,13 @@ function reloadCSS() {
 
 module.exports = reloadCSS;
 
-},{"./bundle-url":27}],11:[function(require,module,exports) {
+},{"./bundle-url":11}],8:[function(require,module,exports) {
 
         var reloadCSS = require('_css_loader');
         module.hot.dispose(reloadCSS);
         module.hot.accept(reloadCSS);
       
-},{"_css_loader":25}],20:[function(require,module,exports) {
+},{"_css_loader":9}],16:[function(require,module,exports) {
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 function vnode(sel, data, children, text, elm) {
@@ -62489,7 +62489,7 @@ function vnode(sel, data, children, text, elm) {
 exports.vnode = vnode;
 exports.default = vnode;
 //# sourceMappingURL=vnode.js.map
-},{}],21:[function(require,module,exports) {
+},{}],17:[function(require,module,exports) {
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.array = Array.isArray;
@@ -62498,7 +62498,7 @@ function primitive(s) {
 }
 exports.primitive = primitive;
 //# sourceMappingURL=is.js.map
-},{}],22:[function(require,module,exports) {
+},{}],18:[function(require,module,exports) {
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 function createElement(tagName) {
@@ -62565,7 +62565,7 @@ exports.htmlDomApi = {
 };
 exports.default = exports.htmlDomApi;
 //# sourceMappingURL=htmldomapi.js.map
-},{}],14:[function(require,module,exports) {
+},{}],19:[function(require,module,exports) {
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 var vnode_1 = require("./vnode");
@@ -62625,7 +62625,7 @@ exports.h = h;
 ;
 exports.default = h;
 //# sourceMappingURL=h.js.map
-},{"./vnode":20,"./is":21}],23:[function(require,module,exports) {
+},{"./vnode":16,"./is":17}],20:[function(require,module,exports) {
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 var h_1 = require("./h");
@@ -62673,7 +62673,7 @@ exports.thunk = function thunk(sel, key, fn, args) {
 };
 exports.default = exports.thunk;
 //# sourceMappingURL=thunk.js.map
-},{"./h":14}],12:[function(require,module,exports) {
+},{"./h":19}],15:[function(require,module,exports) {
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 var vnode_1 = require("./vnode");
@@ -62983,7 +62983,7 @@ function init(modules, domApi) {
 }
 exports.init = init;
 //# sourceMappingURL=snabbdom.js.map
-},{"./vnode":20,"./is":21,"./htmldomapi":22,"./h":14,"./thunk":23}],19:[function(require,module,exports) {
+},{"./vnode":16,"./is":17,"./htmldomapi":18,"./h":19,"./thunk":20}],21:[function(require,module,exports) {
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 function updateClass(oldVnode, vnode) {
@@ -63009,90 +63009,7 @@ function updateClass(oldVnode, vnode) {
 exports.classModule = { create: updateClass, update: updateClass };
 exports.default = exports.classModule;
 //# sourceMappingURL=class.js.map
-},{}],15:[function(require,module,exports) {
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-function updateProps(oldVnode, vnode) {
-    var key, cur, old, elm = vnode.elm, oldProps = oldVnode.data.props, props = vnode.data.props;
-    if (!oldProps && !props)
-        return;
-    if (oldProps === props)
-        return;
-    oldProps = oldProps || {};
-    props = props || {};
-    for (key in oldProps) {
-        if (!props[key]) {
-            delete elm[key];
-        }
-    }
-    for (key in props) {
-        cur = props[key];
-        old = oldProps[key];
-        if (old !== cur && (key !== 'value' || elm[key] !== cur)) {
-            elm[key] = cur;
-        }
-    }
-}
-exports.propsModule = { create: updateProps, update: updateProps };
-exports.default = exports.propsModule;
-//# sourceMappingURL=props.js.map
-},{}],17:[function(require,module,exports) {
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-var xlinkNS = 'http://www.w3.org/1999/xlink';
-var xmlNS = 'http://www.w3.org/XML/1998/namespace';
-var colonChar = 58;
-var xChar = 120;
-function updateAttrs(oldVnode, vnode) {
-    var key, elm = vnode.elm, oldAttrs = oldVnode.data.attrs, attrs = vnode.data.attrs;
-    if (!oldAttrs && !attrs)
-        return;
-    if (oldAttrs === attrs)
-        return;
-    oldAttrs = oldAttrs || {};
-    attrs = attrs || {};
-    // update modified attributes, add new attributes
-    for (key in attrs) {
-        var cur = attrs[key];
-        var old = oldAttrs[key];
-        if (old !== cur) {
-            if (cur === true) {
-                elm.setAttribute(key, "");
-            }
-            else if (cur === false) {
-                elm.removeAttribute(key);
-            }
-            else {
-                if (key.charCodeAt(0) !== xChar) {
-                    elm.setAttribute(key, cur);
-                }
-                else if (key.charCodeAt(3) === colonChar) {
-                    // Assume xml namespace
-                    elm.setAttributeNS(xmlNS, key, cur);
-                }
-                else if (key.charCodeAt(5) === colonChar) {
-                    // Assume xlink namespace
-                    elm.setAttributeNS(xlinkNS, key, cur);
-                }
-                else {
-                    elm.setAttribute(key, cur);
-                }
-            }
-        }
-    }
-    // remove removed attributes
-    // use `in` operator since the previous `for` iteration uses it (.i.e. add even attributes with undefined value)
-    // the other option is to remove all attributes with value == undefined
-    for (key in oldAttrs) {
-        if (!(key in attrs)) {
-            elm.removeAttribute(key);
-        }
-    }
-}
-exports.attributesModule = { create: updateAttrs, update: updateAttrs };
-exports.default = exports.attributesModule;
-//# sourceMappingURL=attributes.js.map
-},{}],16:[function(require,module,exports) {
+},{}],22:[function(require,module,exports) {
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 var raf = (typeof window !== 'undefined' && window.requestAnimationFrame) || setTimeout;
@@ -63188,7 +63105,63 @@ exports.styleModule = {
 };
 exports.default = exports.styleModule;
 //# sourceMappingURL=style.js.map
-},{}],18:[function(require,module,exports) {
+},{}],23:[function(require,module,exports) {
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+var xlinkNS = 'http://www.w3.org/1999/xlink';
+var xmlNS = 'http://www.w3.org/XML/1998/namespace';
+var colonChar = 58;
+var xChar = 120;
+function updateAttrs(oldVnode, vnode) {
+    var key, elm = vnode.elm, oldAttrs = oldVnode.data.attrs, attrs = vnode.data.attrs;
+    if (!oldAttrs && !attrs)
+        return;
+    if (oldAttrs === attrs)
+        return;
+    oldAttrs = oldAttrs || {};
+    attrs = attrs || {};
+    // update modified attributes, add new attributes
+    for (key in attrs) {
+        var cur = attrs[key];
+        var old = oldAttrs[key];
+        if (old !== cur) {
+            if (cur === true) {
+                elm.setAttribute(key, "");
+            }
+            else if (cur === false) {
+                elm.removeAttribute(key);
+            }
+            else {
+                if (key.charCodeAt(0) !== xChar) {
+                    elm.setAttribute(key, cur);
+                }
+                else if (key.charCodeAt(3) === colonChar) {
+                    // Assume xml namespace
+                    elm.setAttributeNS(xmlNS, key, cur);
+                }
+                else if (key.charCodeAt(5) === colonChar) {
+                    // Assume xlink namespace
+                    elm.setAttributeNS(xlinkNS, key, cur);
+                }
+                else {
+                    elm.setAttribute(key, cur);
+                }
+            }
+        }
+    }
+    // remove removed attributes
+    // use `in` operator since the previous `for` iteration uses it (.i.e. add even attributes with undefined value)
+    // the other option is to remove all attributes with value == undefined
+    for (key in oldAttrs) {
+        if (!(key in attrs)) {
+            elm.removeAttribute(key);
+        }
+    }
+}
+exports.attributesModule = { create: updateAttrs, update: updateAttrs };
+exports.default = exports.attributesModule;
+//# sourceMappingURL=attributes.js.map
+},{}],24:[function(require,module,exports) {
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 function invokeHandler(handler, vnode, event) {
@@ -63284,7 +63257,34 @@ exports.eventListenersModule = {
 };
 exports.default = exports.eventListenersModule;
 //# sourceMappingURL=eventlisteners.js.map
-},{}],10:[function(require,module,exports) {
+},{}],25:[function(require,module,exports) {
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+function updateProps(oldVnode, vnode) {
+    var key, cur, old, elm = vnode.elm, oldProps = oldVnode.data.props, props = vnode.data.props;
+    if (!oldProps && !props)
+        return;
+    if (oldProps === props)
+        return;
+    oldProps = oldProps || {};
+    props = props || {};
+    for (key in oldProps) {
+        if (!props[key]) {
+            delete elm[key];
+        }
+    }
+    for (key in props) {
+        cur = props[key];
+        old = oldProps[key];
+        if (old !== cur && (key !== 'value' || elm[key] !== cur)) {
+            elm[key] = cur;
+        }
+    }
+}
+exports.propsModule = { create: updateProps, update: updateProps };
+exports.default = exports.propsModule;
+//# sourceMappingURL=props.js.map
+},{}],7:[function(require,module,exports) {
 "use strict";
 
 var _index = require("./index.styl");
@@ -63305,7 +63305,7 @@ inject('pod', () => {
   let worldcamera = null;
   ecs.on('load world camera', (id, c) => worldcamera = c);
   const zero = new three.Vector3(0, 0, 0);
-  const origin = new three.Vector3();
+  const TEMP = new three.Vector3();
 
   const h = require('snabbdom/h').default;
   const ui = (state, params, ecs) => {
@@ -63314,10 +63314,10 @@ inject('pod', () => {
     elements.push([zero, h('div.test', '(0, 0, 0)')]);
 
     return h('div#root', elements.map(e => {
-      origin.copy(e[0]);
-      origin.project(worldcamera);
-      const x = (origin.x + 1.0) * (canvas.width / 2.0);
-      const y = (1.0 - origin.y) * (canvas.height / 2.0);
+      TEMP.copy(e[0]);
+      TEMP.project(worldcamera);
+      const x = (TEMP.x + 1.0) * (canvas.width / 2.0);
+      const y = (1.0 - TEMP.y) * (canvas.height / 2.0);
       if (isNaN(x) || isNaN(y)) return null;
       return h('span', { style: { position: 'absolute', left: `${x}px`, top: `${y}px` } }, e[1]);
     }));
@@ -63333,7 +63333,7 @@ inject('pod', () => {
     current = next;
   });
 });
-},{"./index.styl":11,"injectinto":7,"three":9,"snabbdom":12,"snabbdom/modules/class":19,"snabbdom/modules/props":15,"snabbdom/modules/attributes":17,"snabbdom/modules/style":16,"snabbdom/modules/eventlisteners":18,"snabbdom/h":14}],2:[function(require,module,exports) {
+},{"./index.styl":8,"injectinto":13,"three":14,"snabbdom":15,"snabbdom/h":19,"snabbdom/modules/class":21,"snabbdom/modules/style":22,"snabbdom/modules/attributes":23,"snabbdom/modules/eventlisteners":24,"snabbdom/modules/props":25}],2:[function(require,module,exports) {
 const inject = require('injectinto')
 const cannon = require('cannon')
 const three = require('three')
@@ -63394,7 +63394,7 @@ ecs.on('pointer click', (id, e) => {
   ecs.emit('load box', ecs.id(), { position: offset })
 })
 
-},{"injectinto":7,"cannon":8,"three":9,"./ecs":3,"./physics":4,"./display":5,"./controls":6,"./ui":10}],0:[function(require,module,exports) {
+},{"./ecs":3,"./physics":4,"./display":5,"./controls":6,"./ui":7,"cannon":12,"injectinto":13,"three":14}],0:[function(require,module,exports) {
 var global = (1, eval)('this');
 var OldModule = module.bundle.Module;
 function Module() {
@@ -63412,7 +63412,7 @@ function Module() {
 module.bundle.Module = Module;
 
 if (!module.bundle.parent) {
-  var ws = new WebSocket('ws://localhost:60827/');
+  var ws = new WebSocket('ws://localhost:49614/');
   ws.onmessage = function(event) {
     var data = JSON.parse(event.data);
 

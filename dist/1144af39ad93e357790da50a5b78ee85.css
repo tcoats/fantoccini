@@ -347,6 +347,7 @@ body {
   height: 100%;
   display: grid;
   background: #000;
+  color: #dfe1e8;
 }
 #canvas {
   margin: auto;

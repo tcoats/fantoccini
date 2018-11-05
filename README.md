@@ -4,7 +4,8 @@
 - [x] HTML overlay
 - [ ] Pause / play
 - [ ] Mouse select
-- [ ] Create and edit boxes
+- [ ] [Outline](https://threejs.org/examples/webgl_postprocessing_outline.html)
+- [ ] Create and edit boxes [Example](https://threejs.org/examples/misc_animation_authoring.html) [Animation Key Frame](https://threejs.org/examples/misc_animation_keys.html)
 - [ ] Constrain axis
 - [ ] Ray distance tests
 - [ ] Test constraint system
@@ -12,8 +13,26 @@
 ## Character
 - [ ] Design starfish dude
 - [ ] Generate dude mesh from primative skeleton
+- [ ] [Morph](https://threejs.org/examples/webgl_buffergeometry_morphtargets.html)
 - [ ] Content aware 3rd person camera
 - [ ] Edge detection for grabbing
+
+## Style
+- [ ] [SAO](https://threejs.org/examples/webgl_postprocessing_sao.html) / [SSAO](https://threejs.org/examples/webgl_postprocessing_ssao.html) / [PCSS](https://threejs.org/examples/webgl_shadowmap_pcss.html)
+- 3D geometry for effects
+- Simple flat materials & lighting
+- Maybe shadows and ambient occlusion
+- [Lambert](https://threejs.org/examples/webgl_materials_variations_lambert.html)
+- [Toon](https://threejs.org/examples/webgl_materials_variations_toon.html)
+
+# Jucy
+- [B&W Spotted](https://threejs.org/examples/webgl_postprocessing.html)
+- [Glitch](https://threejs.org/examples/webgl_postprocessing_glitch.html)
+- [Crossfade](https://threejs.org/examples/webgl_postprocessing_crossfade.html)
+- [Bokeh](https://threejs.org/examples/webgl_postprocessing_dof2.html)
+- [Pixel](https://threejs.org/examples/webgl_postprocessing_pixel.html)
+- [Retro Vectors](https://threejs.org/examples/webgl_postprocessing_unreal_bloom.html)
+
 
 # AI
 https://www.oreilly.com/ideas/the-current-state-of-machine-intelligence-2-0

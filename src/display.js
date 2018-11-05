@@ -95,7 +95,7 @@ inject('pod', () => {
     renderer.setViewport(0, 0, canvas.width, canvas.height)
     renderer.render(world, worldcamera)
     renderer.clear(false, true, false)
-    renderer.setViewport(0, 0, 100, 100)
+    renderer.setViewport(0, canvas.height - 50, 50, 50)
     renderer.render(axisscene, axiscamera)
   })
 })
