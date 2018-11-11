@@ -73,7 +73,8 @@ inject('pod', () => {
   })
 
   ecs.on('load box', (id, box) => {
-    const halfExtents = new three.Vector3(1, 1, 1)
+    const halfExtents = box.halfExtents
+      ? box.halfExtents : new three.Vector3(1, 1, 1)
     box.geometry = new three.BoxGeometry(
       halfExtents.x * 2, halfExtents.y * 2, halfExtents.z * 2)
     box.mesh = new three.Mesh(box.geometry, material)

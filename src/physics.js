@@ -35,11 +35,12 @@ inject('pod', () => {
     ground.body.quaternion.setFromAxisAngle(
       new cannon.Vec3(1, 0, 0), -Math.PI / 2)
     world.addBody(ground.body)
-    // entities[id] = ground
   })
 
   ecs.on('load box', (id, box) => {
-    const halfExtents = new cannon.Vec3(1, 1, 1)
+    const halfExtents = box.halfExtents
+      ? box.halfExtents
+      : new cannon.Vec3(1, 1, 1)
     box.shape = new cannon.Box(halfExtents)
     box.body = new cannon.Body({ mass: 5 })
     box.body.addShape(box.shape)

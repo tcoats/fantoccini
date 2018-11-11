@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "start": "parcel index.html"
+    "debug": "parcel index.html --out-dir docs",
+    "deploy": "parcel build index.html --out-dir docs --public-url ."
   },
   "license": "MIT",
   "dependencies": {
@@ -13,5 +14,8 @@
     "snabbdom": "^0.7.2",
     "stylus": "^0.54.5",
     "three": "^0.98.0"
+  },
+  "devDependencies": {
+    "cssnano": "^4.1.7"
   }
 }

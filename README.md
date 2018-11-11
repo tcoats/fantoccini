@@ -1,13 +1,46 @@
 # Fantoccini
 
+Tap space for menu, tap space again to dismiss.
+Menu overlays the screen and has key shortcuts shown against all items.
+
+Z, X, C - constrain X, Y, Z axis (Shown as lock icons)
+Physics play / pause (P key?)
+
+Selection information
+Duplicate? Delete?
+
+Load assets? Unload assets?
+
+Search for entity, full text search?
+
+```javascript
+const raycaster = new THREE.Raycaster()
+const crosshair = new THREE.Vector2(0, 0)
+
+function render()
+  raycaster.setFromCamera(crosshair, camera)
+  const intersects = raycaster.intersectObjects(scene.children)
+  for (let i of intersects)
+    i.object
+    i.point = intersection point
+```
+- [ ] [Mousepick](https://github.com/schteppe/cannon.js/blob/master/examples/threejs_mousepick.html)
+
+## Todo
+- [ ] Add sea creature to fantoccini
+- [ ] Three source lighting
+
+## Mouse Select
+- [ ] [Outline](https://threejs.org/examples/webgl_postprocessing_outline.html)
+- [ ] Constrain axis
+- [ ] [Example UI](https://threejs.org/examples/misc_animation_authoring.html)
+- [ ] [Animation Key Frame](https://threejs.org/examples/misc_animation_keys.html)
+
+
 ## Editor
 - [x] HTML overlay
 - [ ] Pause / play
-- [ ] Mouse select
-- [ ] [Outline](https://threejs.org/examples/webgl_postprocessing_outline.html)
-- [ ] Create and edit boxes [Example](https://threejs.org/examples/misc_animation_authoring.html) [Animation Key Frame](https://threejs.org/examples/misc_animation_keys.html)
-- [ ] Constrain axis
-- [ ] Ray distance tests
+- [ ] Create and edit boxes
 - [ ] Test constraint system
 
 ## Character
