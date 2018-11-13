@@ -47119,10 +47119,25 @@ inject('pod', function () {
     box.mesh.receiveShadow = true;
     entities[id] = box;
   });
+
+  var raycast = function raycast(coords, camera) {
+    var raycaster = new three.Raycaster();
+    raycaster.setFromCamera(crosshair, camera);
+    return raycaster.intersectObjects(world.children);
+  };
+
   ecs.on('delete', function (id) {
     if (entities[id]) delete entities[id];
   });
+  var crosshair = new three.Vector2(0, 0);
   ecs.on('display delta', function (id, dt) {
+    var intersects = raycast(crosshair, worldcamera);
+
+    if (intersects.length > 0) {
+      var spotlight = intersects[0];
+      console.log(spotlight.object.id);
+    }
+
     worldcamera.getWorldQuaternion(axiscamera.quaternion);
     axiscamera.position.set(0, 0, 1);
     axiscamera.position.applyQuaternion(axiscamera.quaternion);
@@ -48525,7 +48540,7 @@ var parent = module.bundle.parent;
 if ((!parent || !parent.isParcelRequire) && typeof WebSocket !== 'undefined') {
   var hostname = "" || location.hostname;
   var protocol = location.protocol === 'https:' ? 'wss' : 'ws';
-  var ws = new WebSocket(protocol + '://' + hostname + ':' + "60443" + '/');
+  var ws = new WebSocket(protocol + '://' + hostname + ':' + "60501" + '/');
 
   ws.onmessage = function (event) {
     var data = JSON.parse(event.data);
@@ -48668,3 +48683,4 @@ function hmrAccept(bundle, id) {
   });
 }
 },{}]},{},["../../.config/yarn/global/node_modules/parcel-bundler/src/builtins/hmr-runtime.js","src/index.js"], null)
+//# sourceMappingURL=/src.a2b27638.map

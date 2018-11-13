@@ -84,11 +84,23 @@ inject('pod', () => {
     entities[id] = box
   })
 
+  const raycast = (coords, camera) => {
+    const raycaster = new three.Raycaster()
+    raycaster.setFromCamera(crosshair, camera)
+    return raycaster.intersectObjects(world.children)
+  }
+
   ecs.on('delete', (id) => {
     if (entities[id]) delete entities[id]
   })
 
+  const crosshair = new three.Vector2(0, 0)
   ecs.on('display delta', (id, dt) => {
+    const intersects = raycast(crosshair, worldcamera)
+    if (intersects.length > 0) {
+      const spotlight = intersects[0]
+      console.log(spotlight.object.id)
+    }
     worldcamera.getWorldQuaternion(axiscamera.quaternion)
     axiscamera.position.set(0, 0, 1)
     axiscamera.position.applyQuaternion(axiscamera.quaternion)
