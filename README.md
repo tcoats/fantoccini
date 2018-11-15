@@ -1,5 +1,7 @@
 # Fantoccini
 
+https://github.com/kchapelier/wavefunctioncollapse
+
 ## Editor
 - [ ] Three source lighting
 - [ ] Tap space for global menu, tap space again to dismiss

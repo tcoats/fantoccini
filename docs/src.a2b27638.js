@@ -47055,35 +47055,34 @@ inject('pod', function () {
   var worldcamera = null;
   var axiscamera = null;
   var axisscene = null;
+  var groundMaterial = null;
+  var boxMaterial = null;
   ecs.on('init', function () {
     worldcamera = new three.PerspectiveCamera(75, canvas.width / canvas.height, 0.1, 1000);
     world = new three.Scene();
-    material = new three.MeshLambertMaterial({
-      color: 0xdddddd
+    groundMaterial = new three.MeshLambertMaterial({
+      color: 0xFD9148
     });
-    world.fog = new three.Fog(0x000000, 0, 500);
-    var ambient = new three.AmbientLight(0x111111);
-    world.add(ambient);
-    light = new three.SpotLight(0xffffff);
-    light.position.set(10, 30, 20);
-    light.target.position.set(0, 0, 0);
-    light.castShadow = true;
-    light.shadow.camera.cear = 20;
-    light.shadow.camera.far = 50;
-    light.shadow.camera.fov = 40;
-    light.shadowMapBias = 0.1;
-    light.shadowMapDarkness = 0.7;
-    light.shadow.mapSize.width = 2 * 512;
-    light.shadow.mapSize.height = 2 * 512;
-    world.add(light); // world.add(new three.AxesHelper(1))
+    boxMaterial = new three.MeshLambertMaterial({
+      color: 0x6297D0
+    }); // world.fog = new three.Fog(0xffffff, 0, 200)
+    // Three Point Lighting
 
+    var keyLight = new three.DirectionalLight(0xffffff, 1);
+    keyLight.position.set(-1, 1, 1);
+    world.add(keyLight);
+    var fillLight = new three.DirectionalLight(0xffffff, 0.5);
+    fillLight.position.set(1, 1, -1);
+    world.add(fillLight);
+    var backLight = new three.AmbientLight(0xffffff, 0.2);
+    world.add(backLight);
     renderer = new three.WebGLRenderer({
       canvas: canvas
     });
     renderer.shadowMap.enabled = true;
     renderer.shadowMapSoft = true;
     renderer.setSize(canvas.width, canvas.height, false);
-    renderer.setClearColor(0x000000, 1);
+    renderer.setClearColor(0xffffff, 1);
     renderer.autoClear = false;
     axiscamera = new three.OrthographicCamera(-1, 1, 1, -1, 0, 2);
     axisscene = new three.Scene();
@@ -47094,9 +47093,9 @@ inject('pod', function () {
     ecs.emit('load world camera', null, worldcamera);
   });
   ecs.on('load ground', function (id, ground) {
-    ground.geometry = new three.PlaneGeometry(300, 300, 50, 50);
+    ground.geometry = new three.PlaneGeometry(3000, 3000, 50, 50);
     ground.geometry.applyMatrix(new three.Matrix4().makeRotationX(-Math.PI / 2));
-    ground.mesh = new three.Mesh(ground.geometry, material);
+    ground.mesh = new three.Mesh(ground.geometry, groundMaterial);
     ground.mesh.castShadow = true;
     ground.mesh.receiveShadow = true;
     world.add(ground.mesh);
@@ -47113,7 +47112,7 @@ inject('pod', function () {
   ecs.on('load box', function (id, box) {
     var halfExtents = box.halfExtents ? box.halfExtents : new three.Vector3(1, 1, 1);
     box.geometry = new three.BoxGeometry(halfExtents.x * 2, halfExtents.y * 2, halfExtents.z * 2);
-    box.mesh = new three.Mesh(box.geometry, material);
+    box.mesh = new three.Mesh(box.geometry, boxMaterial);
     world.add(box.mesh);
     box.mesh.castShadow = true;
     box.mesh.receiveShadow = true;
@@ -47329,7 +47328,7 @@ var reloadCSS = require('_css_loader');
 
 module.hot.dispose(reloadCSS);
 module.hot.accept(reloadCSS);
-},{"_css_loader":"../../.config/yarn/global/node_modules/parcel-bundler/src/builtins/css-loader.js"}],"node_modules/snabbdom/es/vnode.js":[function(require,module,exports) {
+},{"./../fonts/iosevka-regular.woff2":[["iosevka-regular.4889853f.woff2","fonts/iosevka-regular.woff2"],"fonts/iosevka-regular.woff2"],"./../fonts/iosevka-regular.woff":[["iosevka-regular.fd294b8e.woff","fonts/iosevka-regular.woff"],"fonts/iosevka-regular.woff"],"./../fonts/iosevka-regular.ttf":[["iosevka-regular.16ab2779.ttf","fonts/iosevka-regular.ttf"],"fonts/iosevka-regular.ttf"],"_css_loader":"../../.config/yarn/global/node_modules/parcel-bundler/src/builtins/css-loader.js"}],"node_modules/snabbdom/es/vnode.js":[function(require,module,exports) {
 "use strict";
 
 Object.defineProperty(exports, "__esModule", {
@@ -48380,14 +48379,14 @@ inject('pod', function () {
 
   var ui = function ui(state, params, ecs) {
     var elements = [];
-    elements.push([zero, h('div.test', '(0, 0, 0)')]);
+    elements.push([zero, h('div.test', '[0.00, 0.00, 0.00]')]);
     return h('div#root', elements.map(function (e) {
       TEMP.copy(e[0]);
       TEMP.project(worldcamera);
       var x = (TEMP.x + 1.0) * (canvas.width / 2.0);
       var y = (1.0 - TEMP.y) * (canvas.height / 2.0);
       if (isNaN(x) || isNaN(y)) return null;
-      return h('span', {
+      return h('span.hud', {
         style: {
           position: 'absolute',
           left: "".concat(x, "px"),
@@ -48540,7 +48539,7 @@ var parent = module.bundle.parent;
 if ((!parent || !parent.isParcelRequire) && typeof WebSocket !== 'undefined') {
   var hostname = "" || location.hostname;
   var protocol = location.protocol === 'https:' ? 'wss' : 'ws';
-  var ws = new WebSocket(protocol + '://' + hostname + ':' + "60501" + '/');
+  var ws = new WebSocket(protocol + '://' + hostname + ':' + "57879" + '/');
 
   ws.onmessage = function (event) {
     var data = JSON.parse(event.data);

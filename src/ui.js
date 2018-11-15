@@ -23,7 +23,7 @@ inject('pod', () => {
   const ui = (state, params, ecs) => {
     const elements = []
 
-    elements.push([zero, h('div.test', '(0, 0, 0)')])
+    elements.push([zero, h('div.test', '[0.00, 0.00, 0.00]')])
 
     return h('div#root', elements.map(e => {
       TEMP.copy(e[0])
@@ -31,7 +31,7 @@ inject('pod', () => {
       const x = (TEMP.x + 1.0) * (canvas.width / 2.0)
       const y = (1.0 - TEMP.y) * (canvas.height / 2.0)
       if (isNaN(x) || isNaN(y)) return null
-      return h('span', { style: { position: 'absolute', left: `${x}px`, top: `${y}px` } }, e[1])
+      return h('span.hud', { style: { position: 'absolute', left: `${x}px`, top: `${y}px` } }, e[1])
     }))
   }
 
