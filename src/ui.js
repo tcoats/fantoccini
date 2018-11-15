@@ -16,6 +16,9 @@ inject('pod', () => {
 
   let worldcamera  = null
   ecs.on('load world camera', (id, c) => worldcamera = c)
+  let spotlight = null
+  ecs.on('spotlight clear', () => spotlight = null)
+  ecs.on('spotlight set', (id, entity) => spotlight = entity)
   const zero = new three.Vector3(0, 0, 0)
   const TEMP = new three.Vector3()
 
@@ -23,7 +26,8 @@ inject('pod', () => {
   const ui = (state, params, ecs) => {
     const elements = []
 
-    elements.push([zero, h('div.test', '[0.00, 0.00, 0.00]')])
+    if (spotlight)
+      elements.push([spotlight.mesh.position, h('div.test', `[${spotlight.mesh.position.x.toFixed(2)}, ${spotlight.mesh.position.y.toFixed(2)}, ${spotlight.mesh.position.z.toFixed(2)}]`)])
 
     return h('div#root', elements.map(e => {
       TEMP.copy(e[0])

@@ -117,6 +117,7 @@ inject('pod', () => {
       if (spotlight) {
         world.remove(spotlight.mesh)
         spotlight = null
+        ecs.emit('spotlight clear')
       }
       return
     }
@@ -130,8 +131,9 @@ inject('pod', () => {
       spotlight.mesh = new three.LineSegments(spotlight.geometry)
       spotlight.mesh.material.depthTest = false
       spotlight.mesh.material.color = new three.Color(0xffffff)
-      spotlight.mesh.material.linewidth = 3
+      spotlight.mesh.material.linewidth = 2
       world.add(spotlight.mesh)
+      ecs.emit('spotlight set', entity.id, entity)
     }
     spotlight.mesh.position.copy(entity.mesh.position)
     spotlight.mesh.quaternion.copy(entity.mesh.quaternion)

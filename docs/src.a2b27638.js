@@ -47173,6 +47173,7 @@ inject('pod', function () {
       if (spotlight) {
         world.remove(spotlight.mesh);
         spotlight = null;
+        ecs.emit('spotlight clear');
       }
 
       return;
@@ -47191,8 +47192,9 @@ inject('pod', function () {
       spotlight.mesh = new three.LineSegments(spotlight.geometry);
       spotlight.mesh.material.depthTest = false;
       spotlight.mesh.material.color = new three.Color(0xffffff);
-      spotlight.mesh.material.linewidth = 3;
+      spotlight.mesh.material.linewidth = 2;
       world.add(spotlight.mesh);
+      ecs.emit('spotlight set', entity.id, entity);
     }
 
     spotlight.mesh.position.copy(entity.mesh.position);
@@ -48433,6 +48435,13 @@ inject('pod', function () {
   ecs.on('load world camera', function (id, c) {
     return worldcamera = c;
   });
+  var spotlight = null;
+  ecs.on('spotlight clear', function () {
+    return spotlight = null;
+  });
+  ecs.on('spotlight set', function (id, entity) {
+    return spotlight = entity;
+  });
   var zero = new three.Vector3(0, 0, 0);
   var TEMP = new three.Vector3();
 
@@ -48440,7 +48449,7 @@ inject('pod', function () {
 
   var ui = function ui(state, params, ecs) {
     var elements = [];
-    elements.push([zero, h('div.test', '[0.00, 0.00, 0.00]')]);
+    if (spotlight) elements.push([spotlight.mesh.position, h('div.test', "[".concat(spotlight.mesh.position.x.toFixed(2), ", ").concat(spotlight.mesh.position.y.toFixed(2), ", ").concat(spotlight.mesh.position.z.toFixed(2), "]"))]);
     return h('div#root', elements.map(function (e) {
       TEMP.copy(e[0]);
       TEMP.project(worldcamera);
@@ -48608,7 +48617,7 @@ var parent = module.bundle.parent;
 if ((!parent || !parent.isParcelRequire) && typeof WebSocket !== 'undefined') {
   var hostname = "" || location.hostname;
   var protocol = location.protocol === 'https:' ? 'wss' : 'ws';
-  var ws = new WebSocket(protocol + '://' + hostname + ':' + "59373" + '/');
+  var ws = new WebSocket(protocol + '://' + hostname + ':' + "60341" + '/');
 
   ws.onmessage = function (event) {
     var data = JSON.parse(event.data);
