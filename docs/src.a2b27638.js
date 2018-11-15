@@ -47098,21 +47098,27 @@ inject('pod', function () {
     ground.mesh = new three.Mesh(ground.geometry, groundMaterial);
     ground.mesh.castShadow = true;
     ground.mesh.receiveShadow = true;
+    ground.mesh.ecsid = id;
+    ground.selectable = false;
     world.add(ground.mesh);
     entities[id] = ground;
   });
   ecs.on('load camera', function (id, camera) {
     camera.body = new three.Object3D();
+    camera.body.ecsid = id;
+    camera.selectable = false;
     world.add(camera.body);
     camera.head = new three.Object3D();
     camera.head.add(worldcamera);
     camera.body.position.y = 2;
     camera.body.add(camera.head);
+    entities[id] = camera;
   });
   ecs.on('load box', function (id, box) {
     var halfExtents = box.halfExtents ? box.halfExtents : new three.Vector3(1, 1, 1);
     box.geometry = new three.BoxGeometry(halfExtents.x * 2, halfExtents.y * 2, halfExtents.z * 2);
     box.mesh = new three.Mesh(box.geometry, boxMaterial);
+    box.mesh.ecsid = id;
     world.add(box.mesh);
     box.mesh.castShadow = true;
     box.mesh.receiveShadow = true;
@@ -47128,15 +47134,74 @@ inject('pod', function () {
   ecs.on('delete', function (id) {
     if (entities[id]) delete entities[id];
   });
-  var crosshair = new three.Vector2(0, 0);
-  ecs.on('display delta', function (id, dt) {
-    var intersects = raycast(crosshair, worldcamera);
+  var spotlight = null;
 
-    if (intersects.length > 0) {
-      var spotlight = intersects[0];
-      console.log(spotlight.object.id);
+  var setSpotlight = function setSpotlight(intersects) {
+    var entity = null;
+    var _iteratorNormalCompletion = true;
+    var _didIteratorError = false;
+    var _iteratorError = undefined;
+
+    try {
+      for (var _iterator = intersects[Symbol.iterator](), _step; !(_iteratorNormalCompletion = (_step = _iterator.next()).done); _iteratorNormalCompletion = true) {
+        var intersect = _step.value;
+        var ecsid = intersect.object.ecsid;
+
+        if (ecsid && entities[ecsid]) {
+          var e = entities[ecsid];
+          if (e.selectable === false) continue;
+          entity = e;
+          break;
+        }
+      }
+    } catch (err) {
+      _didIteratorError = true;
+      _iteratorError = err;
+    } finally {
+      try {
+        if (!_iteratorNormalCompletion && _iterator.return != null) {
+          _iterator.return();
+        }
+      } finally {
+        if (_didIteratorError) {
+          throw _iteratorError;
+        }
+      }
     }
 
+    if (!entity) {
+      if (spotlight) {
+        world.remove(spotlight.mesh);
+        spotlight = null;
+      }
+
+      return;
+    }
+
+    if (spotlight && entity.id != spotlight.id) {
+      world.remove(spotlight.mesh);
+      spotlight = null;
+    }
+
+    if (!spotlight) {
+      spotlight = {
+        id: entity.id
+      };
+      spotlight.geometry = new three.EdgesGeometry(entity.geometry);
+      spotlight.mesh = new three.LineSegments(spotlight.geometry);
+      spotlight.mesh.material.depthTest = false;
+      spotlight.mesh.material.color = new three.Color(0xffffff);
+      spotlight.mesh.material.linewidth = 3;
+      world.add(spotlight.mesh);
+    }
+
+    spotlight.mesh.position.copy(entity.mesh.position);
+    spotlight.mesh.quaternion.copy(entity.mesh.quaternion);
+  };
+
+  var crosshair = new three.Vector2(0, 0);
+  ecs.on('display delta', function (id, dt) {
+    setSpotlight(raycast(crosshair, worldcamera));
     worldcamera.getWorldQuaternion(axiscamera.quaternion);
     axiscamera.position.set(0, 0, 1);
     axiscamera.position.applyQuaternion(axiscamera.quaternion);
@@ -47349,8 +47414,7 @@ function vnode(sel, data, children, text, elm) {
   };
 }
 
-var _default = vnode; //# sourceMappingURL=vnode.js.map
-
+var _default = vnode;
 exports.default = _default;
 },{}],"node_modules/snabbdom/es/is.js":[function(require,module,exports) {
 "use strict";
@@ -47365,7 +47429,7 @@ exports.array = array;
 
 function primitive(s) {
   return typeof s === 'string' || typeof s === 'number';
-} //# sourceMappingURL=is.js.map
+}
 },{}],"node_modules/snabbdom/es/htmldomapi.js":[function(require,module,exports) {
 "use strict";
 
@@ -47452,8 +47516,7 @@ var htmlDomApi = {
   isComment: isComment
 };
 exports.htmlDomApi = htmlDomApi;
-var _default = htmlDomApi; //# sourceMappingURL=htmldomapi.js.map
-
+var _default = htmlDomApi;
 exports.default = _default;
 },{}],"node_modules/snabbdom/es/h.js":[function(require,module,exports) {
 "use strict";
@@ -47526,8 +47589,7 @@ function h(sel, b, c) {
 }
 
 ;
-var _default = h; //# sourceMappingURL=h.js.map
-
+var _default = h;
 exports.default = _default;
 },{"./vnode":"node_modules/snabbdom/es/vnode.js","./is":"node_modules/snabbdom/es/is.js"}],"node_modules/snabbdom/es/thunk.js":[function(require,module,exports) {
 "use strict";
@@ -47596,8 +47658,7 @@ var thunk = function thunk(sel, key, fn, args) {
 };
 
 exports.thunk = thunk;
-var _default = thunk; //# sourceMappingURL=thunk.js.map
-
+var _default = thunk;
 exports.default = _default;
 },{"./h":"node_modules/snabbdom/es/h.js"}],"node_modules/snabbdom/es/snabbdom.js":[function(require,module,exports) {
 "use strict";
@@ -47968,7 +48029,7 @@ function init(modules, domApi) {
 
     return vnode;
   };
-} //# sourceMappingURL=snabbdom.js.map
+}
 },{"./vnode":"node_modules/snabbdom/es/vnode.js","./is":"node_modules/snabbdom/es/is.js","./htmldomapi":"node_modules/snabbdom/es/htmldomapi.js","./h":"node_modules/snabbdom/es/h.js","./thunk":"node_modules/snabbdom/es/thunk.js"}],"node_modules/snabbdom/modules/class.js":[function(require,module,exports) {
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
@@ -47994,7 +48055,7 @@ function updateClass(oldVnode, vnode) {
 }
 exports.classModule = { create: updateClass, update: updateClass };
 exports.default = exports.classModule;
-//# sourceMappingURL=class.js.map
+
 },{}],"node_modules/snabbdom/modules/props.js":[function(require,module,exports) {
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
@@ -48021,7 +48082,7 @@ function updateProps(oldVnode, vnode) {
 }
 exports.propsModule = { create: updateProps, update: updateProps };
 exports.default = exports.propsModule;
-//# sourceMappingURL=props.js.map
+
 },{}],"node_modules/snabbdom/modules/attributes.js":[function(require,module,exports) {
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
@@ -48077,7 +48138,7 @@ function updateAttrs(oldVnode, vnode) {
 }
 exports.attributesModule = { create: updateAttrs, update: updateAttrs };
 exports.default = exports.attributesModule;
-//# sourceMappingURL=attributes.js.map
+
 },{}],"node_modules/snabbdom/modules/style.js":[function(require,module,exports) {
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
@@ -48173,7 +48234,7 @@ exports.styleModule = {
     remove: applyRemoveStyle
 };
 exports.default = exports.styleModule;
-//# sourceMappingURL=style.js.map
+
 },{}],"node_modules/snabbdom/modules/eventlisteners.js":[function(require,module,exports) {
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
@@ -48269,7 +48330,7 @@ exports.eventListenersModule = {
     destroy: updateEventListeners
 };
 exports.default = exports.eventListenersModule;
-//# sourceMappingURL=eventlisteners.js.map
+
 },{}],"node_modules/snabbdom/vnode.js":[function(require,module,exports) {
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
@@ -48280,7 +48341,7 @@ function vnode(sel, data, children, text, elm) {
 }
 exports.vnode = vnode;
 exports.default = vnode;
-//# sourceMappingURL=vnode.js.map
+
 },{}],"node_modules/snabbdom/is.js":[function(require,module,exports) {
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
@@ -48289,7 +48350,7 @@ function primitive(s) {
     return typeof s === 'string' || typeof s === 'number';
 }
 exports.primitive = primitive;
-//# sourceMappingURL=is.js.map
+
 },{}],"node_modules/snabbdom/h.js":[function(require,module,exports) {
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
@@ -48349,7 +48410,7 @@ function h(sel, b, c) {
 exports.h = h;
 ;
 exports.default = h;
-//# sourceMappingURL=h.js.map
+
 },{"./vnode":"node_modules/snabbdom/vnode.js","./is":"node_modules/snabbdom/is.js"}],"src/ui.js":[function(require,module,exports) {
 "use strict";
 
@@ -48465,14 +48526,22 @@ if (!inject.oneornone('ecs')) {
     };
 
     var loadBox = function loadBox() {
-      return ecs.emit('load box', ecs.id(), {
+      var id = ecs.id();
+      ecs.emit('load box', id, {
+        id: id,
         position: randomPosition(),
         halfExtents: randomSize()
       });
     };
 
-    ecs.emit('load ground', ecs.id(), {});
-    ecs.emit('load camera', ecs.id(), {});
+    var groundId = ecs.id();
+    ecs.emit('load ground', groundId, {
+      id: groundId
+    });
+    var cameraId = ecs.id();
+    ecs.emit('load camera', cameraId, {
+      id: cameraId
+    });
     loadBox();
     loadBox();
     loadBox();
@@ -48539,7 +48608,7 @@ var parent = module.bundle.parent;
 if ((!parent || !parent.isParcelRequire) && typeof WebSocket !== 'undefined') {
   var hostname = "" || location.hostname;
   var protocol = location.protocol === 'https:' ? 'wss' : 'ws';
-  var ws = new WebSocket(protocol + '://' + hostname + ':' + "57879" + '/');
+  var ws = new WebSocket(protocol + '://' + hostname + ':' + "59373" + '/');
 
   ws.onmessage = function (event) {
     var data = JSON.parse(event.data);

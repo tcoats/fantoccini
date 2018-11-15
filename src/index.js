@@ -25,12 +25,18 @@ if (!inject.oneornone('ecs')) {
       3 + Math.random() * 3,
       0.2 + Math.random() * 2,
       3 + Math.random() * 3)
-    const loadBox = () => ecs.emit('load box', ecs.id(), {
-      position: randomPosition(),
-      halfExtents: randomSize()
-    })
-    ecs.emit('load ground', ecs.id(), {})
-    ecs.emit('load camera', ecs.id(), {})
+    const loadBox = () => {
+      const id = ecs.id()
+      ecs.emit('load box', id, {
+        id: id,
+        position: randomPosition(),
+        halfExtents: randomSize()
+      })
+    }
+    const groundId = ecs.id()
+    ecs.emit('load ground', groundId, { id: groundId })
+    const cameraId = ecs.id()
+    ecs.emit('load camera', cameraId, { id: cameraId })
     loadBox()
     loadBox()
     loadBox()

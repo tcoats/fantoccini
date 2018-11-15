@@ -60,17 +60,22 @@ inject('pod', () => {
     ground.mesh = new three.Mesh(ground.geometry, groundMaterial)
     ground.mesh.castShadow = true
     ground.mesh.receiveShadow = true
+    ground.mesh.ecsid = id
+    ground.selectable = false
     world.add(ground.mesh)
     entities[id] = ground
   })
 
   ecs.on('load camera', (id, camera) => {
     camera.body = new three.Object3D()
+    camera.body.ecsid = id
+    camera.selectable = false
     world.add(camera.body)
     camera.head = new three.Object3D()
     camera.head.add(worldcamera)
     camera.body.position.y = 2
     camera.body.add(camera.head)
+    entities[id] = camera
   })
 
   ecs.on('load box', (id, box) => {
@@ -79,6 +84,7 @@ inject('pod', () => {
     box.geometry = new three.BoxGeometry(
       halfExtents.x * 2, halfExtents.y * 2, halfExtents.z * 2)
     box.mesh = new three.Mesh(box.geometry, boxMaterial)
+    box.mesh.ecsid = id
     world.add(box.mesh)
     box.mesh.castShadow = true
     box.mesh.receiveShadow = true
@@ -95,13 +101,45 @@ inject('pod', () => {
     if (entities[id]) delete entities[id]
   })
 
+  let spotlight = null
+  const setSpotlight = (intersects) => {
+    let entity = null
+    for (let intersect of intersects) {
+      const ecsid = intersect.object.ecsid
+      if (ecsid && entities[ecsid]) {
+        const e = entities[ecsid]
+        if (e.selectable === false) continue
+        entity = e
+        break
+      }
+    }
+    if (!entity) {
+      if (spotlight) {
+        world.remove(spotlight.mesh)
+        spotlight = null
+      }
+      return
+    }
+    if (spotlight && entity.id != spotlight.id) {
+      world.remove(spotlight.mesh)
+      spotlight = null
+    }
+    if (!spotlight) {
+      spotlight = { id: entity.id }
+      spotlight.geometry = new three.EdgesGeometry(entity.geometry)
+      spotlight.mesh = new three.LineSegments(spotlight.geometry)
+      spotlight.mesh.material.depthTest = false
+      spotlight.mesh.material.color = new three.Color(0xffffff)
+      spotlight.mesh.material.linewidth = 3
+      world.add(spotlight.mesh)
+    }
+    spotlight.mesh.position.copy(entity.mesh.position)
+    spotlight.mesh.quaternion.copy(entity.mesh.quaternion)
+  }
+
   const crosshair = new three.Vector2(0, 0)
   ecs.on('display delta', (id, dt) => {
-    const intersects = raycast(crosshair, worldcamera)
-    if (intersects.length > 0) {
-      const spotlight = intersects[0]
-      console.log(spotlight.object.id)
-    }
+    setSpotlight(raycast(crosshair, worldcamera))
     worldcamera.getWorldQuaternion(axiscamera.quaternion)
     axiscamera.position.set(0, 0, 1)
     axiscamera.position.applyQuaternion(axiscamera.quaternion)
