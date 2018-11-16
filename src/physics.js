@@ -58,6 +58,9 @@ inject('pod', () => {
 
   ecs.on('physics delta', (id, dt) => {
     world.step(1.0 / 60.0, dt / 1000, 3)
+  })
+
+  ecs.on('physics to display delta', (id, dt) => {
     for (let shape of Object.values(entities)) {
       shape.mesh.position.copy(shape.body.position)
       shape.mesh.quaternion.copy(shape.body.quaternion)

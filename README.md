@@ -3,13 +3,10 @@
 https://github.com/kchapelier/wavefunctioncollapse
 
 ## Editor
-- [x] Three source lighting
-- [ ] Tap space for global menu, tap space again to dismiss
+- [x] Tap ~ for global menu, tap ~ again to dismiss
 - [ ] Constrain ZXC XYZ shown against the axis legend
 - [ ] Physics state toggle play / no gravity + high damping / pause
-- [x] Visual effect for object under crosshair
-- [x] New visual effect for selected object
-- [ ] Can add and remove from selection
+- [x] Can add and remove from selection
 - [ ] Global menu shows details of selected objects
 - [ ] New object from asset list
 - [ ] Duplicate selected objects

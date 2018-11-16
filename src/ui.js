@@ -21,13 +21,17 @@ inject('pod', () => {
   ecs.on('spotlight set', (id, entity) => spotlight = entity)
   const zero = new three.Vector3(0, 0, 0)
   const TEMP = new three.Vector3()
+  let menuopen = false
+  ecs.on('menu open', () => menuopen = true)
+  ecs.on('menu close', () => menuopen = false)
 
   const h = require('snabbdom/h').default
   const ui = (state, params, ecs) => {
     const elements = []
 
-    if (spotlight)
-      elements.push([spotlight.mesh.position, h('div.test', `[${spotlight.mesh.position.x.toFixed(2)}, ${spotlight.mesh.position.y.toFixed(2)}, ${spotlight.mesh.position.z.toFixed(2)}]`)])
+    if (menuopen) {
+      if (spotlight) elements.push([spotlight.mesh.position, h('div.test', `[${spotlight.mesh.position.x.toFixed(2)}, ${spotlight.mesh.position.y.toFixed(2)}, ${spotlight.mesh.position.z.toFixed(2)}]`)])
+    }
 
     return h('div#root', elements.map(e => {
       TEMP.copy(e[0])

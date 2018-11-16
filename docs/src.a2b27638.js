@@ -47028,7 +47028,8 @@ inject('pod', function () {
   });
   ecs.on('physics delta', function (id, dt) {
     world.step(1.0 / 60.0, dt / 1000, 3);
-
+  });
+  ecs.on('physics to display delta', function (id, dt) {
     var _arr = Object.values(entities);
 
     for (var _i = 0; _i < _arr.length; _i++) {
@@ -47186,24 +47187,61 @@ inject('pod', function () {
 
     if (!spotlight) {
       spotlight = {
-        id: entity.id
+        id: entity.id,
+        entity: entity
       };
       spotlight.geometry = new three.EdgesGeometry(entity.geometry);
       spotlight.mesh = new three.LineSegments(spotlight.geometry);
       spotlight.mesh.material.depthTest = false;
       spotlight.mesh.material.color = new three.Color(0xffffff);
-      spotlight.mesh.material.linewidth = 2;
+      spotlight.mesh.material.linewidth = 3;
       world.add(spotlight.mesh);
-      ecs.emit('spotlight set', entity.id, entity);
+      ecs.emit('spotlight set', entity.id, spotlight);
     }
-
-    spotlight.mesh.position.copy(entity.mesh.position);
-    spotlight.mesh.quaternion.copy(entity.mesh.quaternion);
   };
 
+  var selected = {};
+  ecs.on('pointer click', function (id, e) {
+    if (!spotlight) return;
+
+    if (selected[spotlight.id]) {
+      world.remove(selected[spotlight.id].mesh);
+      delete selected[spotlight.id];
+      ecs.emit('selection removed', spotlight.id);
+      return;
+    }
+
+    var selection = {
+      id: spotlight.id,
+      entity: spotlight.entity
+    };
+    selection.geometry = new three.EdgesGeometry(selection.entity.geometry);
+    selection.mesh = new three.LineSegments(selection.geometry);
+    selection.mesh.material.depthTest = false;
+    selection.mesh.material.color = new three.Color(0xffffff);
+    selection.mesh.material.linewidth = 1;
+    selected[selection.id] = selection;
+    world.add(selection.mesh);
+    ecs.emit('selection added', selection.id, selection);
+  });
+  ecs.on('physics to display delta', function (id, dt) {
+    setSpotlight(raycast(crosshair, worldcamera));
+
+    if (spotlight) {
+      spotlight.mesh.position.copy(spotlight.entity.mesh.position);
+      spotlight.mesh.quaternion.copy(spotlight.entity.mesh.quaternion);
+    }
+
+    var _arr = Object.values(selected);
+
+    for (var _i = 0; _i < _arr.length; _i++) {
+      var selection = _arr[_i];
+      selection.mesh.position.copy(selection.entity.mesh.position);
+      selection.mesh.quaternion.copy(selection.entity.mesh.quaternion);
+    }
+  });
   var crosshair = new three.Vector2(0, 0);
   ecs.on('display delta', function (id, dt) {
-    setSpotlight(raycast(crosshair, worldcamera));
     worldcamera.getWorldQuaternion(axiscamera.quaternion);
     axiscamera.position.set(0, 0, 1);
     axiscamera.position.applyQuaternion(axiscamera.quaternion);
@@ -47239,7 +47277,8 @@ inject('pod', function () {
     left: 65,
     right: 68,
     up: 32,
-    down: 16
+    down: 16,
+    menu: 192
   };
 
   var _arr = Object.values(keys);
@@ -47249,17 +47288,39 @@ inject('pod', function () {
     pressed[key] = false;
   }
 
+  var inmenu = false;
+  var menuopenedat = 0;
+
   var onmove = function onmove(e) {
     movementX += e.movementX;
     movementY += e.movementY;
   };
 
   var onkeydown = function onkeydown(e) {
-    return pressed[e.keyCode] = true;
+    if (pressed[e.keyCode]) return;
+    pressed[e.keyCode] = true;
+
+    if (e.keyCode == keys.menu) {
+      if (inmenu) {
+        inmenu = false;
+        ecs.emit('menu close');
+      } else {
+        menuopenedat = Date.now();
+        inmenu = true;
+        ecs.emit('menu open');
+      }
+    }
   };
 
   var onkeyup = function onkeyup(e) {
-    return pressed[e.keyCode] = false;
+    pressed[e.keyCode] = false;
+
+    if (e.keyCode == keys.menu) {
+      if (inmenu && Date.now() - menuopenedat > 200) {
+        inmenu = false;
+        ecs.emit('menu close');
+      }
+    }
   };
 
   var client2D = new three.Vector2();
@@ -48444,12 +48505,23 @@ inject('pod', function () {
   });
   var zero = new three.Vector3(0, 0, 0);
   var TEMP = new three.Vector3();
+  var menuopen = false;
+  ecs.on('menu open', function () {
+    return menuopen = true;
+  });
+  ecs.on('menu close', function () {
+    return menuopen = false;
+  });
 
   var h = require('snabbdom/h').default;
 
   var ui = function ui(state, params, ecs) {
     var elements = [];
-    if (spotlight) elements.push([spotlight.mesh.position, h('div.test', "[".concat(spotlight.mesh.position.x.toFixed(2), ", ").concat(spotlight.mesh.position.y.toFixed(2), ", ").concat(spotlight.mesh.position.z.toFixed(2), "]"))]);
+
+    if (menuopen) {
+      if (spotlight) elements.push([spotlight.mesh.position, h('div.test', "[".concat(spotlight.mesh.position.x.toFixed(2), ", ").concat(spotlight.mesh.position.y.toFixed(2), ", ").concat(spotlight.mesh.position.z.toFixed(2), "]"))]);
+    }
+
     return h('div#root', elements.map(function (e) {
       TEMP.copy(e[0]);
       TEMP.project(worldcamera);
@@ -48569,26 +48641,22 @@ if (!inject.oneornone('ecs')) {
       var dt = current - last;
       ecs.emit('event delta', null, dt);
       ecs.emit('physics delta', null, dt);
+      ecs.emit('physics to display delta', null, dt);
       ecs.emit('display delta', null, dt);
       last = current;
     };
 
     window.requestAnimationFrame(animate);
-  });
-  var worldcamera = null;
-  ecs.on('load world camera', function (id, c) {
-    return worldcamera = c;
-  });
-  ecs.on('pointer click', function (id, e) {
-    var offset = new three.Vector3(0, 0, -3);
-    var lookDirection = new three.Quaternion();
-    worldcamera.getWorldQuaternion(lookDirection);
-    offset.applyQuaternion(lookDirection);
-    offset.add(e.client3D);
-    ecs.emit('load box', ecs.id(), {
-      position: offset
-    });
-  });
+  }); // let worldcamera  = null
+  // ecs.on('load world camera', (id, c) => worldcamera = c)
+  // ecs.on('pointer click', (id, e) => {
+  //   const offset = new three.Vector3(0, 0, -3)
+  //   const lookDirection = new three.Quaternion()
+  //   worldcamera.getWorldQuaternion(lookDirection)
+  //   offset.applyQuaternion(lookDirection)
+  //   offset.add(e.client3D)
+  //   ecs.emit('load box', ecs.id(), { position: offset })
+  // })
 } else location.reload(true);
 },{"injectinto":"node_modules/injectinto/inject.js","cannon":"node_modules/cannon/build/cannon.js","three":"node_modules/three/build/three.module.js","./ecs":"src/ecs.js","./physics":"src/physics.js","./display":"src/display.js","./controls":"src/controls.js","./ui":"src/ui.js"}],"../../.config/yarn/global/node_modules/parcel-bundler/src/builtins/hmr-runtime.js":[function(require,module,exports) {
 var global = arguments[3];
@@ -48617,7 +48685,7 @@ var parent = module.bundle.parent;
 if ((!parent || !parent.isParcelRequire) && typeof WebSocket !== 'undefined') {
   var hostname = "" || location.hostname;
   var protocol = location.protocol === 'https:' ? 'wss' : 'ws';
-  var ws = new WebSocket(protocol + '://' + hostname + ':' + "60341" + '/');
+  var ws = new WebSocket(protocol + '://' + hostname + ':' + "63998" + '/');
 
   ws.onmessage = function (event) {
     var data = JSON.parse(event.data);

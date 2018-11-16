@@ -126,22 +126,51 @@ inject('pod', () => {
       spotlight = null
     }
     if (!spotlight) {
-      spotlight = { id: entity.id }
+      spotlight = { id: entity.id, entity: entity }
       spotlight.geometry = new three.EdgesGeometry(entity.geometry)
       spotlight.mesh = new three.LineSegments(spotlight.geometry)
       spotlight.mesh.material.depthTest = false
       spotlight.mesh.material.color = new three.Color(0xffffff)
-      spotlight.mesh.material.linewidth = 2
+      spotlight.mesh.material.linewidth = 3
       world.add(spotlight.mesh)
-      ecs.emit('spotlight set', entity.id, entity)
+      ecs.emit('spotlight set', entity.id, spotlight)
     }
-    spotlight.mesh.position.copy(entity.mesh.position)
-    spotlight.mesh.quaternion.copy(entity.mesh.quaternion)
   }
+
+  let selected = {}
+  ecs.on('pointer click', (id, e) => {
+    if (!spotlight) return
+    if (selected[spotlight.id]) {
+      world.remove(selected[spotlight.id].mesh)
+      delete selected[spotlight.id]
+      ecs.emit('selection removed', spotlight.id)
+      return
+    }
+    const selection = { id: spotlight.id, entity: spotlight.entity }
+    selection.geometry = new three.EdgesGeometry(selection.entity.geometry)
+    selection.mesh = new three.LineSegments(selection.geometry)
+    selection.mesh.material.depthTest = false
+    selection.mesh.material.color = new three.Color(0xffffff)
+    selection.mesh.material.linewidth = 1
+    selected[selection.id] = selection
+    world.add(selection.mesh)
+    ecs.emit('selection added', selection.id, selection)
+  })
+
+  ecs.on('physics to display delta', (id, dt) => {
+    setSpotlight(raycast(crosshair, worldcamera))
+    if (spotlight) {
+      spotlight.mesh.position.copy(spotlight.entity.mesh.position)
+      spotlight.mesh.quaternion.copy(spotlight.entity.mesh.quaternion)
+    }
+    for (let selection of Object.values(selected)) {
+      selection.mesh.position.copy(selection.entity.mesh.position)
+      selection.mesh.quaternion.copy(selection.entity.mesh.quaternion)
+    }
+  })
 
   const crosshair = new three.Vector2(0, 0)
   ecs.on('display delta', (id, dt) => {
-    setSpotlight(raycast(crosshair, worldcamera))
     worldcamera.getWorldQuaternion(axiscamera.quaternion)
     axiscamera.position.set(0, 0, 1)
     axiscamera.position.applyQuaternion(axiscamera.quaternion)

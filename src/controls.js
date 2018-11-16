@@ -19,16 +19,41 @@ inject('pod', () => {
     left: 65,
     right: 68,
     up: 32,
-    down: 16
+    down: 16,
+    menu: 192
   }
   for (let key of Object.values(keys)) pressed[key] = false
+  let inmenu = false
+  let menuopenedat = 0
 
   const onmove = (e) => {
     movementX += e.movementX
     movementY += e.movementY
   }
-  const onkeydown = (e) => pressed[e.keyCode] = true
-  const onkeyup = (e) => pressed[e.keyCode] = false
+  const onkeydown = (e) => {
+    if (pressed[e.keyCode]) return
+    pressed[e.keyCode] = true
+    if (e.keyCode == keys.menu) {
+      if (inmenu) {
+        inmenu = false
+        ecs.emit('menu close')
+      }
+      else {
+        menuopenedat = Date.now()
+        inmenu = true
+        ecs.emit('menu open')
+      }
+    }
+  }
+  const onkeyup = (e) => {
+    pressed[e.keyCode] = false
+    if (e.keyCode == keys.menu) {
+      if (inmenu && Date.now() - menuopenedat > 200) {
+        inmenu = false
+        ecs.emit('menu close')
+      }
+    }
+  }
   const client2D = new three.Vector2()
   const client3D = new three.Vector3()
   const onclick = (e) => {
