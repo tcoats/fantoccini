@@ -19,28 +19,40 @@ inject('pod', () => {
   let spotlight = null
   ecs.on('spotlight clear', () => spotlight = null)
   ecs.on('spotlight set', (id, entity) => spotlight = entity)
-  const zero = new three.Vector3(0, 0, 0)
-  const TEMP = new three.Vector3()
-  let menuopen = false
-  ecs.on('menu open', () => menuopen = true)
-  ecs.on('menu close', () => menuopen = false)
+
+  let inmenu = true
+  ecs.on('menu open', () => inmenu = true)
+  ecs.on('menu close', () => inmenu = false)
+
+  let constraints = { x: false, y: false, z: false }
+  ecs.on('constrain axis', (id, c) => constraints = c)
 
   const h = require('snabbdom/h').default
+  const TEMP = new three.Vector3()
   const ui = (state, params, ecs) => {
     const elements = []
 
-    if (menuopen) {
+    if (inmenu) {
       if (spotlight) elements.push([spotlight.mesh.position, h('div.test', `[${spotlight.mesh.position.x.toFixed(2)}, ${spotlight.mesh.position.y.toFixed(2)}, ${spotlight.mesh.position.z.toFixed(2)}]`)])
     }
 
-    return h('div#root', elements.map(e => {
-      TEMP.copy(e[0])
-      TEMP.project(worldcamera)
-      const x = (TEMP.x + 1.0) * (canvas.width / 2.0)
-      const y = (1.0 - TEMP.y) * (canvas.height / 2.0)
-      if (isNaN(x) || isNaN(y)) return null
-      return h('span.hud', { style: { position: 'absolute', left: `${x}px`, top: `${y}px` } }, e[1])
-    }))
+    return h('div#root', [
+      h('div', { style: { position: 'absolute', left: '60px', bottom: '0px', height: '50px' } }, [
+        constraints.x ? 'x' : '',
+        h('br'),
+        constraints.y ? 'y' : '',
+        h('br'),
+        constraints.z ? 'z' : ''
+      ]),
+      ...elements.map(e => {
+        TEMP.copy(e[0])
+        TEMP.project(worldcamera)
+        const x = (TEMP.x + 1.0) * (canvas.width / 2.0)
+        const y = (1.0 - TEMP.y) * (canvas.height / 2.0)
+        if (isNaN(x) || isNaN(y)) return null
+        return h('span.hud', { style: { position: 'absolute', left: `${x.toFixed(1)}px`, top: `${y.toFixed(1)}px` } }, e[1])
+      })
+    ])
   }
 
   let state = {}

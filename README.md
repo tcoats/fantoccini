@@ -4,7 +4,8 @@ https://github.com/kchapelier/wavefunctioncollapse
 
 ## Editor
 - [x] Tap ~ for global menu, tap ~ again to dismiss
-- [ ] Constrain ZXC XYZ shown against the axis legend
+- [x] Constrain ZXC XYZ shown against the axis legend
+- [ ] Crosshair
 - [ ] Physics state toggle play / no gravity + high damping / pause
 - [x] Can add and remove from selection
 - [ ] Global menu shows details of selected objects

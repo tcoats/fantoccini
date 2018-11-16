@@ -20,11 +20,28 @@ inject('pod', () => {
     right: 68,
     up: 32,
     down: 16,
-    menu: 192
+    menu: 81,
+    xaxis: 90,
+    yaxis: 88,
+    zaxis: 67
   }
   for (let key of Object.values(keys)) pressed[key] = false
-  let inmenu = false
-  let menuopenedat = 0
+
+  let inmenu = true
+  let menuopenedat = null
+  ecs.on('menu open', () => {
+    menuopenedat = Date.now()
+    inmenu = true
+  })
+  ecs.on('menu close', () => {
+    menuopenedat = null
+    inmenu = false
+  })
+
+  let constraints = { x: false, y: false, z: false }
+  let constrainedat = null
+  let prevconstraints = null
+  ecs.on('constrain axis', (id, c) => constraints = c)
 
   const onmove = (e) => {
     movementX += e.movementX
@@ -33,26 +50,75 @@ inject('pod', () => {
   const onkeydown = (e) => {
     if (pressed[e.keyCode]) return
     pressed[e.keyCode] = true
-    if (e.keyCode == keys.menu) {
-      if (inmenu) {
-        inmenu = false
-        ecs.emit('menu close')
+    switch (e.keyCode) {
+    case keys.menu:
+      if (inmenu) ecs.emit('menu close')
+      else ecs.emit('menu open')
+      break
+    case keys.xaxis:
+    case keys.yaxis:
+    case keys.zaxis:
+      if (!constrainedat) {
+        constrainedat = Date.now()
+        prevconstraints = constraints
       }
-      else {
-        menuopenedat = Date.now()
-        inmenu = true
-        ecs.emit('menu open')
-      }
+      ecs.emit('constrain axis', null, {
+        x: !pressed[keys.xaxis],
+        y: !pressed[keys.yaxis],
+        z: !pressed[keys.zaxis]
+      })
+      break
     }
   }
   const onkeyup = (e) => {
-    pressed[e.keyCode] = false
-    if (e.keyCode == keys.menu) {
-      if (inmenu && Date.now() - menuopenedat > 200) {
-        inmenu = false
-        ecs.emit('menu close')
+    switch (e.keyCode) {
+    case keys.menu:
+      if (inmenu && Date.now() - menuopenedat > 200) ecs.emit('menu close')
+      break
+    case keys.xaxis:
+      if (!constrainedat || Date.now() - constrainedat < 200) {
+        ecs.emit('constrain axis', null, {
+          x: !prevconstraints.x,
+          y: prevconstraints.y,
+          z: prevconstraints.z
+        })
+        prevconstraints = constraints
+        constrainedat = null
+      } else if (!pressed[keys.yaxis] && !pressed[keys.zaxis]) {
+        ecs.emit('constrain axis', null, prevconstraints)
+        constrainedat = null
       }
+      break
+    case keys.yaxis:
+      if (!constrainedat || Date.now() - constrainedat < 200) {
+        ecs.emit('constrain axis', null, {
+          x: prevconstraints.x,
+          y: !prevconstraints.y,
+          z: prevconstraints.z
+        })
+        prevconstraints = constraints
+        constrainedat = null
+      } else if (!pressed[keys.xaxis] && !pressed[keys.zaxis]) {
+        ecs.emit('constrain axis', null, prevconstraints)
+        constrainedat = null
+      }
+      break
+    case keys.zaxis:
+      if (!constrainedat || Date.now() - constrainedat < 200) {
+        ecs.emit('constrain axis', null, {
+          x: prevconstraints.x,
+          y: prevconstraints.y,
+          z: !prevconstraints.z
+        })
+        prevconstraints = constraints
+        constrainedat = null
+      } else if (!pressed[keys.xaxis] && !pressed[keys.yaxis]) {
+        ecs.emit('constrain axis', null, prevconstraints)
+        constrainedat = null
+      }
+      break
     }
+    pressed[e.keyCode] = false
   }
   const client2D = new three.Vector2()
   const client3D = new three.Vector3()
@@ -97,10 +163,8 @@ inject('pod', () => {
   ecs.on('load world camera', (id, c) => worldcamera = c)
   ecs.on('load camera', (id, p) => camera = p)
 
-  let frame = 0
   const impulse = new three.Vector3()
   ecs.on('event delta', (id, dt) => {
-    frame++
     if (!camera) return
     const mouseSensitivity = 0.002
     camera.body.rotation.y -= movementX * mouseSensitivity
@@ -111,7 +175,6 @@ inject('pod', () => {
       Number(pressed[keys.right]) - Number(pressed[keys.left]),
       Number(pressed[keys.up]) - Number(pressed[keys.down]),
       Number(pressed[keys.backward]) - Number(pressed[keys.forward]))
-    if (frame % 60 == 0) {}
     impulse.multiplyScalar(0.01 * dt)
     impulse.applyQuaternion(camera.head.quaternion)
     impulse.applyQuaternion(camera.body.quaternion)

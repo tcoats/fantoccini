@@ -47278,7 +47278,10 @@ inject('pod', function () {
     right: 68,
     up: 32,
     down: 16,
-    menu: 192
+    menu: 81,
+    xaxis: 90,
+    yaxis: 88,
+    zaxis: 67
   };
 
   var _arr = Object.values(keys);
@@ -47288,8 +47291,26 @@ inject('pod', function () {
     pressed[key] = false;
   }
 
-  var inmenu = false;
-  var menuopenedat = 0;
+  var inmenu = true;
+  var menuopenedat = null;
+  ecs.on('menu open', function () {
+    menuopenedat = Date.now();
+    inmenu = true;
+  });
+  ecs.on('menu close', function () {
+    menuopenedat = null;
+    inmenu = false;
+  });
+  var constraints = {
+    x: false,
+    y: false,
+    z: false
+  };
+  var constrainedat = null;
+  var prevconstraints = null;
+  ecs.on('constrain axis', function (id, c) {
+    return constraints = c;
+  });
 
   var onmove = function onmove(e) {
     movementX += e.movementX;
@@ -47300,27 +47321,84 @@ inject('pod', function () {
     if (pressed[e.keyCode]) return;
     pressed[e.keyCode] = true;
 
-    if (e.keyCode == keys.menu) {
-      if (inmenu) {
-        inmenu = false;
-        ecs.emit('menu close');
-      } else {
-        menuopenedat = Date.now();
-        inmenu = true;
-        ecs.emit('menu open');
-      }
+    switch (e.keyCode) {
+      case keys.menu:
+        if (inmenu) ecs.emit('menu close');else ecs.emit('menu open');
+        break;
+
+      case keys.xaxis:
+      case keys.yaxis:
+      case keys.zaxis:
+        if (!constrainedat) {
+          constrainedat = Date.now();
+          prevconstraints = constraints;
+        }
+
+        ecs.emit('constrain axis', null, {
+          x: !pressed[keys.xaxis],
+          y: !pressed[keys.yaxis],
+          z: !pressed[keys.zaxis]
+        });
+        break;
     }
   };
 
   var onkeyup = function onkeyup(e) {
-    pressed[e.keyCode] = false;
+    switch (e.keyCode) {
+      case keys.menu:
+        if (inmenu && Date.now() - menuopenedat > 200) ecs.emit('menu close');
+        break;
 
-    if (e.keyCode == keys.menu) {
-      if (inmenu && Date.now() - menuopenedat > 200) {
-        inmenu = false;
-        ecs.emit('menu close');
-      }
+      case keys.xaxis:
+        if (!constrainedat || Date.now() - constrainedat < 200) {
+          ecs.emit('constrain axis', null, {
+            x: !prevconstraints.x,
+            y: prevconstraints.y,
+            z: prevconstraints.z
+          });
+          prevconstraints = constraints;
+          constrainedat = null;
+        } else if (!pressed[keys.yaxis] && !pressed[keys.zaxis]) {
+          ecs.emit('constrain axis', null, prevconstraints);
+          constrainedat = null;
+        }
+
+        break;
+
+      case keys.yaxis:
+        if (!constrainedat || Date.now() - constrainedat < 200) {
+          ecs.emit('constrain axis', null, {
+            x: prevconstraints.x,
+            y: !prevconstraints.y,
+            z: prevconstraints.z
+          });
+          prevconstraints = constraints;
+          constrainedat = null;
+        } else if (!pressed[keys.xaxis] && !pressed[keys.zaxis]) {
+          ecs.emit('constrain axis', null, prevconstraints);
+          constrainedat = null;
+        }
+
+        break;
+
+      case keys.zaxis:
+        if (!constrainedat || Date.now() - constrainedat < 200) {
+          ecs.emit('constrain axis', null, {
+            x: prevconstraints.x,
+            y: prevconstraints.y,
+            z: !prevconstraints.z
+          });
+          prevconstraints = constraints;
+          constrainedat = null;
+        } else if (!pressed[keys.xaxis] && !pressed[keys.yaxis]) {
+          ecs.emit('constrain axis', null, prevconstraints);
+          constrainedat = null;
+        }
+
+        break;
     }
+
+    pressed[e.keyCode] = false;
   };
 
   var client2D = new three.Vector2();
@@ -47362,10 +47440,8 @@ inject('pod', function () {
   ecs.on('load camera', function (id, p) {
     return camera = p;
   });
-  var frame = 0;
   var impulse = new three.Vector3();
   ecs.on('event delta', function (id, dt) {
-    frame++;
     if (!camera) return;
     var mouseSensitivity = 0.002;
     camera.body.rotation.y -= movementX * mouseSensitivity;
@@ -47373,9 +47449,6 @@ inject('pod', function () {
     camera.head.rotation.x = Math.min(Math.PI / 2, camera.head.rotation.x);
     camera.head.rotation.x = Math.max(-Math.PI / 2, camera.head.rotation.x);
     impulse.set(Number(pressed[keys.right]) - Number(pressed[keys.left]), Number(pressed[keys.up]) - Number(pressed[keys.down]), Number(pressed[keys.backward]) - Number(pressed[keys.forward]));
-
-    if (frame % 60 == 0) {}
-
     impulse.multiplyScalar(0.01 * dt);
     impulse.applyQuaternion(camera.head.quaternion);
     impulse.applyQuaternion(camera.body.quaternion);
@@ -48481,6 +48554,14 @@ var _index = _interopRequireDefault(require("./index.styl"));
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
+function _toConsumableArray(arr) { return _arrayWithoutHoles(arr) || _iterableToArray(arr) || _nonIterableSpread(); }
+
+function _nonIterableSpread() { throw new TypeError("Invalid attempt to spread non-iterable instance"); }
+
+function _iterableToArray(iter) { if (Symbol.iterator in Object(iter) || Object.prototype.toString.call(iter) === "[object Arguments]") return Array.from(iter); }
+
+function _arrayWithoutHoles(arr) { if (Array.isArray(arr)) { for (var i = 0, arr2 = new Array(arr.length); i < arr.length; i++) { arr2[i] = arr[i]; } return arr2; } }
+
 var inject = require('injectinto');
 
 inject('pod', function () {
@@ -48503,26 +48584,41 @@ inject('pod', function () {
   ecs.on('spotlight set', function (id, entity) {
     return spotlight = entity;
   });
-  var zero = new three.Vector3(0, 0, 0);
-  var TEMP = new three.Vector3();
-  var menuopen = false;
+  var inmenu = true;
   ecs.on('menu open', function () {
-    return menuopen = true;
+    return inmenu = true;
   });
   ecs.on('menu close', function () {
-    return menuopen = false;
+    return inmenu = false;
+  });
+  var constraints = {
+    x: false,
+    y: false,
+    z: false
+  };
+  ecs.on('constrain axis', function (id, c) {
+    return constraints = c;
   });
 
   var h = require('snabbdom/h').default;
 
+  var TEMP = new three.Vector3();
+
   var ui = function ui(state, params, ecs) {
     var elements = [];
 
-    if (menuopen) {
+    if (inmenu) {
       if (spotlight) elements.push([spotlight.mesh.position, h('div.test', "[".concat(spotlight.mesh.position.x.toFixed(2), ", ").concat(spotlight.mesh.position.y.toFixed(2), ", ").concat(spotlight.mesh.position.z.toFixed(2), "]"))]);
     }
 
-    return h('div#root', elements.map(function (e) {
+    return h('div#root', [h('div', {
+      style: {
+        position: 'absolute',
+        left: '60px',
+        bottom: '0px',
+        height: '50px'
+      }
+    }, [constraints.x ? 'x' : '', h('br'), constraints.y ? 'y' : '', h('br'), constraints.z ? 'z' : ''])].concat(_toConsumableArray(elements.map(function (e) {
       TEMP.copy(e[0]);
       TEMP.project(worldcamera);
       var x = (TEMP.x + 1.0) * (canvas.width / 2.0);
@@ -48531,11 +48627,11 @@ inject('pod', function () {
       return h('span.hud', {
         style: {
           position: 'absolute',
-          left: "".concat(x, "px"),
-          top: "".concat(y, "px")
+          left: "".concat(x.toFixed(1), "px"),
+          top: "".concat(y.toFixed(1), "px")
         }
       }, e[1]);
-    }));
+    }))));
   };
 
   var state = {};
@@ -48685,7 +48781,7 @@ var parent = module.bundle.parent;
 if ((!parent || !parent.isParcelRequire) && typeof WebSocket !== 'undefined') {
   var hostname = "" || location.hostname;
   var protocol = location.protocol === 'https:' ? 'wss' : 'ws';
-  var ws = new WebSocket(protocol + '://' + hostname + ':' + "63998" + '/');
+  var ws = new WebSocket(protocol + '://' + hostname + ':' + "64313" + '/');
 
   ws.onmessage = function (event) {
     var data = JSON.parse(event.data);
