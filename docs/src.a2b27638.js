@@ -47095,6 +47095,7 @@ inject('pod', function () {
   var boxMaterial = null;
   ecs.on('init', function () {
     worldcamera = new three.PerspectiveCamera(75, canvas.width / canvas.height, 0.1, 1000);
+    worldcamera.layers.enable(1);
     world = new three.Scene();
     groundMaterial = new three.MeshLambertMaterial({
       color: 0xFD9148
@@ -47149,6 +47150,15 @@ inject('pod', function () {
     camera.body.position.y = 2;
     camera.body.add(camera.head);
     entities[id] = camera;
+  });
+  var inmenu = true;
+  ecs.on('menu open', function () {
+    worldcamera.layers.enable(1);
+    inmenu = true;
+  });
+  ecs.on('menu close', function () {
+    worldcamera.layers.disable(1);
+    inmenu = false;
   });
   ecs.on('load box', function (id, box) {
     var halfExtents = box.halfExtents ? box.halfExtents : new three.Vector3(1, 1, 1);
@@ -47230,6 +47240,7 @@ inject('pod', function () {
       spotlight.mesh.material.depthTest = false;
       spotlight.mesh.material.color = new three.Color(0xffffff);
       spotlight.mesh.material.linewidth = 3;
+      spotlight.mesh.layers.set(1);
       world.add(spotlight.mesh);
       ecs.emit('spotlight set', entity.id, spotlight);
     }
@@ -47254,7 +47265,8 @@ inject('pod', function () {
     selection.mesh = new three.LineSegments(selection.geometry);
     selection.mesh.material.depthTest = false;
     selection.mesh.material.color = new three.Color(0xffffff);
-    selection.mesh.material.linewidth = 1;
+    selection.mesh.material.linewidth = 1; // selection.mesh.layers.set(1)
+
     selected[selection.id] = selection;
     world.add(selection.mesh);
     ecs.emit('selection added', selection.id, selection);
@@ -47284,7 +47296,7 @@ inject('pod', function () {
     renderer.setViewport(0, 0, canvas.width, canvas.height);
     renderer.render(world, worldcamera);
     renderer.clear(false, true, false);
-    renderer.setViewport(0, canvas.height - 50, 50, 50);
+    renderer.setViewport(10, canvas.height - 60, 50, 50);
     renderer.render(axisscene, axiscamera);
   });
 });
@@ -47313,7 +47325,7 @@ inject('pod', function () {
     right: 68,
     up: 32,
     down: 16,
-    menu: 81,
+    menu: 192,
     xaxis: 90,
     yaxis: 88,
     zaxis: 67,
@@ -47407,7 +47419,11 @@ inject('pod', function () {
         } else if (!pressed[keys.yaxis] && !pressed[keys.zaxis]) {
           ecs.emit('constrain axis', null, prevconstraints);
           constrainedat = null;
-        }
+        } else ecs.emit('constrain axis', null, {
+          x: true,
+          y: constraints.y,
+          z: constraints.z
+        });
 
         break;
 
@@ -47423,7 +47439,11 @@ inject('pod', function () {
         } else if (!pressed[keys.xaxis] && !pressed[keys.zaxis]) {
           ecs.emit('constrain axis', null, prevconstraints);
           constrainedat = null;
-        }
+        } else ecs.emit('constrain axis', null, {
+          x: constraints.x,
+          y: true,
+          z: constraints.z
+        });
 
         break;
 
@@ -47439,7 +47459,11 @@ inject('pod', function () {
         } else if (!pressed[keys.xaxis] && !pressed[keys.yaxis]) {
           ecs.emit('constrain axis', null, prevconstraints);
           constrainedat = null;
-        }
+        } else ecs.emit('constrain axis', null, {
+          x: constraints.x,
+          y: constraints.y,
+          z: true
+        });
 
         break;
     }
@@ -47447,22 +47471,56 @@ inject('pod', function () {
     pressed[e.keyCode] = false;
   };
 
-  var client2D = new three.Vector2();
-  var client3D = new three.Vector3();
+  var mouseIsDown = false;
+  var mouseDownAt = null;
+  var dragStartPosition = new three.Vector3();
+  var dragStartQuaternion = new three.Quaternion();
 
-  var onclick = function onclick(e) {
-    client2D.set(e.clientX, e.clientY);
-    client3D.set(e.clientX / canvas.width * 2 - 1, -(e.clientY / canvas.height) * 2 + 1, 0);
-    client3D.unproject(worldcamera);
-    ecs.emit('pointer click', null, {
-      client2D: client2D,
-      client3D: client3D
-    });
+  var calcDrag = function calcDrag() {
+    var position = new three.Vector3();
+    var quaternion = new three.Quaternion();
+    worldcamera.getWorldPosition(position);
+    worldcamera.getWorldQuaternion(quaternion);
+    var deltaPosition = position.clone().sub(dragStartPosition);
+    var deltaQuaternion = dragStartQuaternion.clone().inverse().multiply(quaternion);
+    return {
+      startPosition: dragStartPosition,
+      startQuaternion: dragStartQuaternion,
+      deltaPosition: deltaPosition,
+      deltaQuaternion: deltaQuaternion,
+      position: position,
+      quaternion: quaternion
+    };
   };
 
   ecs.on('init', function () {
     root.addEventListener('click', function (e) {
-      if (!islocked) root.requestPointerLock();else onclick(e);
+      if (!islocked) return root.requestPointerLock();
+    });
+    root.addEventListener('mousedown', function (e) {
+      if (!islocked) return;
+      mouseIsDown = true;
+      mouseDownAt = Date.now();
+      worldcamera.getWorldPosition(dragStartPosition);
+      worldcamera.getWorldQuaternion(dragStartQuaternion);
+    });
+    root.addEventListener('mousemove', function (e) {
+      if (!islocked || !mouseIsDown) return;
+      var drag = calcDrag();
+      if (mouseDownAt && (Date.now() - mouseDownAt > 200 || drag.deltaPosition.lengthSq() > 0.1 || drag.deltaQuaternion.lengthSq() > 0.1)) mouseDownAt = null;
+    });
+    root.addEventListener('mouseup', function (e) {
+      if (!islocked) return;
+      mouseIsDown = false;
+
+      if (mouseDownAt && Date.now() - mouseDownAt < 200) {
+        mouseDownAt = null;
+        ecs.emit('pointer click');
+        return;
+      }
+
+      var drag = calcDrag();
+      ecs.emit('dragging finished', null, drag);
     });
     document.addEventListener('pointerlockchange', function () {
       if (document.pointerLockElement === root) ecs.emit('pointer captured');else ecs.emit('pointer released');
@@ -47501,6 +47559,11 @@ inject('pod', function () {
     camera.body.position.add(impulse);
     movementX = 0;
     movementY = 0;
+
+    if (mouseIsDown) {
+      if (mouseDownAt && Date.now() - mouseDownAt > 200) mouseDownAt = null;
+      if (!mouseDownAt) ecs.emit('dragging', null, calcDrag());
+    }
   });
 });
 },{"injectinto":"node_modules/injectinto/inject.js","three":"node_modules/three/build/three.module.js","cannon":"node_modules/cannon/build/cannon.js"}],"../../.config/yarn/global/node_modules/parcel-bundler/src/builtins/bundle-url.js":[function(require,module,exports) {
@@ -48645,7 +48708,7 @@ inject('pod', function () {
   ecs.on('constrain axis', function (id, c) {
     return constraints = c;
   });
-  var physicsModes = ['running', 'molasses', 'disabled'];
+  var physicsModes = ['Physics On', 'Molasses', 'Physics Off'];
   var physicsMode = 0;
   ecs.on('physics mode', function (id, p) {
     return physicsMode = p;
@@ -48662,17 +48725,17 @@ inject('pod', function () {
       if (spotlight) elements.push([spotlight.mesh.position, h('div.test', "[".concat(spotlight.mesh.position.x.toFixed(2), ", ").concat(spotlight.mesh.position.y.toFixed(2), ", ").concat(spotlight.mesh.position.z.toFixed(2), "]"))]);
     }
 
-    return h('div#root', [h('div.constraints', [constraints.x ? 'x' : '', h('br'), constraints.y ? 'y' : '', h('br'), constraints.z ? 'z' : '']), h('div.crosshair'), inmenu ? h('div.physicsmode', "Physics: ".concat(physicsModes[physicsMode])) : null].concat(_toConsumableArray(elements.map(function (e) {
+    return h('div#root', [h('div.constraints', [constraints.x ? h('div', 'X -') : h('div', 'X'), constraints.y ? h('div', 'Y -') : h('div', 'Y'), constraints.z ? h('div', 'Z -') : h('div', 'Z')]), h('div.crosshair'), inmenu ? h('div.box.physicsmode', [physicsModes[physicsMode], h('span.shortcut', 'P')]) : null].concat(_toConsumableArray(elements.map(function (e) {
       TEMP.copy(e[0]);
       TEMP.project(worldcamera);
-      var x = (TEMP.x + 1.0) * (canvas.width / 2.0);
-      var y = (1.0 - TEMP.y) * (canvas.height / 2.0);
+      var x = (TEMP.x + 1.0) * 50;
+      var y = (1.0 - TEMP.y) * 31.395;
       if (isNaN(x) || isNaN(y)) return null;
       return h('span.hud', {
         style: {
           position: 'absolute',
-          left: "".concat(x.toFixed(1), "px"),
-          top: "".concat(y.toFixed(1), "px")
+          left: "".concat(x.toFixed(1), "vw"),
+          top: "".concat(y.toFixed(1), "vw")
         }
       }, e[1]);
     }))));
@@ -48787,16 +48850,23 @@ if (!inject.oneornone('ecs')) {
     };
 
     window.requestAnimationFrame(animate);
-  }); // let worldcamera  = null
-  // ecs.on('load world camera', (id, c) => worldcamera = c)
-  // ecs.on('pointer click', (id, e) => {
-  //   const offset = new three.Vector3(0, 0, -3)
-  //   const lookDirection = new three.Quaternion()
-  //   worldcamera.getWorldQuaternion(lookDirection)
-  //   offset.applyQuaternion(lookDirection)
-  //   offset.add(e.client3D)
-  //   ecs.emit('load box', ecs.id(), { position: offset })
-  // })
+  });
+  var worldcamera = null;
+  ecs.on('load world camera', function (id, c) {
+    return worldcamera = c;
+  });
+  ecs.on('pointer click', function (id, e) {
+    var offset = new three.Vector3(0, 0, -3);
+    var lookDirection = new three.Quaternion();
+    worldcamera.getWorldQuaternion(lookDirection);
+    offset.applyQuaternion(lookDirection);
+    var position = new three.Vector3();
+    worldcamera.getWorldPosition(position);
+    offset.add(position);
+    ecs.emit('load box', ecs.id(), {
+      position: offset
+    });
+  });
 } else location.reload(true);
 },{"injectinto":"node_modules/injectinto/inject.js","cannon":"node_modules/cannon/build/cannon.js","three":"node_modules/three/build/three.module.js","./ecs":"src/ecs.js","./physics":"src/physics.js","./display":"src/display.js","./controls":"src/controls.js","./ui":"src/ui.js"}],"../../.config/yarn/global/node_modules/parcel-bundler/src/builtins/hmr-runtime.js":[function(require,module,exports) {
 var global = arguments[3];
@@ -48825,7 +48895,7 @@ var parent = module.bundle.parent;
 if ((!parent || !parent.isParcelRequire) && typeof WebSocket !== 'undefined') {
   var hostname = "" || location.hostname;
   var protocol = location.protocol === 'https:' ? 'wss' : 'ws';
-  var ws = new WebSocket(protocol + '://' + hostname + ':' + "64695" + '/');
+  var ws = new WebSocket(protocol + '://' + hostname + ':' + "51879" + '/');
 
   ws.onmessage = function (event) {
     var data = JSON.parse(event.data);

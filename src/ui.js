@@ -27,7 +27,7 @@ inject('pod', () => {
   let constraints = { x: false, y: false, z: false }
   ecs.on('constrain axis', (id, c) => constraints = c)
 
-  let physicsModes = ['running', 'molasses', 'disabled']
+  let physicsModes = ['Physics On', 'Molasses', 'Physics Off']
   let physicsMode = 0
   ecs.on('physics mode', (id, p) => physicsMode = p)
 
@@ -42,21 +42,22 @@ inject('pod', () => {
 
     return h('div#root', [
       h('div.constraints', [
-        constraints.x ? 'x' : '',
-        h('br'),
-        constraints.y ? 'y' : '',
-        h('br'),
-        constraints.z ? 'z' : ''
+        constraints.x ? h('div', 'X -') : h('div', 'X'),
+        constraints.y ? h('div', 'Y -') : h('div', 'Y'),
+        constraints.z ? h('div', 'Z -') : h('div', 'Z')
       ]),
       h('div.crosshair'),
-      inmenu ? h('div.physicsmode', `Physics: ${physicsModes[physicsMode]}`) : null,
+      inmenu ? h('div.box.physicsmode', [
+        physicsModes[physicsMode],
+        h('span.shortcut', 'P')
+      ]) : null,
       ...elements.map(e => {
         TEMP.copy(e[0])
         TEMP.project(worldcamera)
-        const x = (TEMP.x + 1.0) * (canvas.width / 2.0)
-        const y = (1.0 - TEMP.y) * (canvas.height / 2.0)
+        const x = (TEMP.x + 1.0) * 50
+        const y = (1.0 - TEMP.y) * 31.395
         if (isNaN(x) || isNaN(y)) return null
-        return h('span.hud', { style: { position: 'absolute', left: `${x.toFixed(1)}px`, top: `${y.toFixed(1)}px` } }, e[1])
+        return h('span.hud', { style: { position: 'absolute', left: `${x.toFixed(1)}vw`, top: `${y.toFixed(1)}vw` } }, e[1])
       })
     ])
   }

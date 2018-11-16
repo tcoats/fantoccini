@@ -62,14 +62,16 @@ if (!inject.oneornone('ecs')) {
     window.requestAnimationFrame(animate)
   })
 
-  // let worldcamera  = null
-  // ecs.on('load world camera', (id, c) => worldcamera = c)
-  // ecs.on('pointer click', (id, e) => {
-  //   const offset = new three.Vector3(0, 0, -3)
-  //   const lookDirection = new three.Quaternion()
-  //   worldcamera.getWorldQuaternion(lookDirection)
-  //   offset.applyQuaternion(lookDirection)
-  //   offset.add(e.client3D)
-  //   ecs.emit('load box', ecs.id(), { position: offset })
-  // })
+  let worldcamera  = null
+  ecs.on('load world camera', (id, c) => worldcamera = c)
+  ecs.on('pointer click', (id, e) => {
+    const offset = new three.Vector3(0, 0, -3)
+    const lookDirection = new three.Quaternion()
+    worldcamera.getWorldQuaternion(lookDirection)
+    offset.applyQuaternion(lookDirection)
+    const position = new three.Vector3()
+    worldcamera.getWorldPosition(position)
+    offset.add(position)
+    ecs.emit('load box', ecs.id(), { position: offset })
+  })
 } else location.reload(true)

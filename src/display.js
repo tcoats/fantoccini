@@ -20,6 +20,7 @@ inject('pod', () => {
   ecs.on('init', () => {
     worldcamera = new three.PerspectiveCamera(
       75, canvas.width / canvas.height, 0.1, 1000)
+    worldcamera.layers.enable(1)
     world = new three.Scene()
     groundMaterial = new three.MeshLambertMaterial({ color: 0xFD9148 })
     boxMaterial = new three.MeshLambertMaterial({ color: 0x6297D0 })
@@ -78,6 +79,16 @@ inject('pod', () => {
     entities[id] = camera
   })
 
+  let inmenu = true
+  ecs.on('menu open', () => {
+    worldcamera.layers.enable(1)
+    inmenu = true
+  })
+  ecs.on('menu close', () => {
+    worldcamera.layers.disable(1)
+    inmenu = false
+  })
+
   ecs.on('load box', (id, box) => {
     const halfExtents = box.halfExtents
       ? box.halfExtents : new three.Vector3(1, 1, 1)
@@ -132,6 +143,7 @@ inject('pod', () => {
       spotlight.mesh.material.depthTest = false
       spotlight.mesh.material.color = new three.Color(0xffffff)
       spotlight.mesh.material.linewidth = 3
+      spotlight.mesh.layers.set(1)
       world.add(spotlight.mesh)
       ecs.emit('spotlight set', entity.id, spotlight)
     }
@@ -152,6 +164,7 @@ inject('pod', () => {
     selection.mesh.material.depthTest = false
     selection.mesh.material.color = new three.Color(0xffffff)
     selection.mesh.material.linewidth = 1
+    // selection.mesh.layers.set(1)
     selected[selection.id] = selection
     world.add(selection.mesh)
     ecs.emit('selection added', selection.id, selection)
@@ -178,7 +191,7 @@ inject('pod', () => {
     renderer.setViewport(0, 0, canvas.width, canvas.height)
     renderer.render(world, worldcamera)
     renderer.clear(false, true, false)
-    renderer.setViewport(0, canvas.height - 50, 50, 50)
+    renderer.setViewport(10, canvas.height - 60, 50, 50)
     renderer.render(axisscene, axiscamera)
   })
 })

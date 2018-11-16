@@ -2,13 +2,12 @@
 
 https://github.com/kchapelier/wavefunctioncollapse
 
+## Bugs
+- [ ] New objects don't get molasses damping
+
 ## Editor
-- [x] Tap ~ for global menu, tap ~ again to dismiss
-- [x] Constrain ZXC XYZ shown against the axis legend
-- [x] Crosshair
-- [x] Physics state toggle play / no gravity + high damping / pause
-- [x] Can add and remove from selection
-- [ ] Global menu shows details of selected objects
+- [x] Full width
+- [x] Proper tracking of mouse state
 - [ ] New object from asset list
 - [ ] Duplicate selected objects
 - [ ] Delete selected objects

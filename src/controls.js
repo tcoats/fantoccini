@@ -20,7 +20,7 @@ inject('pod', () => {
     right: 68,
     up: 32,
     down: 16,
-    menu: 81,
+    menu: 192,
     xaxis: 90,
     yaxis: 88,
     zaxis: 67,
@@ -96,7 +96,11 @@ inject('pod', () => {
       } else if (!pressed[keys.yaxis] && !pressed[keys.zaxis]) {
         ecs.emit('constrain axis', null, prevconstraints)
         constrainedat = null
-      }
+      } else  ecs.emit('constrain axis', null, {
+        x: true,
+        y: constraints.y,
+        z: constraints.z
+      })
       break
     case keys.yaxis:
       if (!constrainedat || Date.now() - constrainedat < 200) {
@@ -110,7 +114,11 @@ inject('pod', () => {
       } else if (!pressed[keys.xaxis] && !pressed[keys.zaxis]) {
         ecs.emit('constrain axis', null, prevconstraints)
         constrainedat = null
-      }
+      } else  ecs.emit('constrain axis', null, {
+        x: constraints.x,
+        y: true,
+        z: constraints.z
+      })
       break
     case keys.zaxis:
       if (!constrainedat || Date.now() - constrainedat < 200) {
@@ -124,30 +132,63 @@ inject('pod', () => {
       } else if (!pressed[keys.xaxis] && !pressed[keys.yaxis]) {
         ecs.emit('constrain axis', null, prevconstraints)
         constrainedat = null
-      }
+      } else ecs.emit('constrain axis', null, {
+        x: constraints.x,
+        y: constraints.y,
+        z: true
+      })
       break
     }
     pressed[e.keyCode] = false
   }
-  const client2D = new three.Vector2()
-  const client3D = new three.Vector3()
-  const onclick = (e) => {
-    client2D.set(e.clientX, e.clientY)
-    client3D.set(
-      (e.clientX / canvas.width) * 2 - 1,
-      -(e.clientY / canvas.height) * 2 + 1,
-      0)
-    client3D.unproject(worldcamera)
-    ecs.emit('pointer click', null, {
-      client2D: client2D,
-      client3D: client3D
-    })
-  }
 
+  let mouseIsDown = false
+  let mouseDownAt = null
+  let dragStartPosition = new three.Vector3()
+  let dragStartQuaternion = new three.Quaternion()
+  const calcDrag = () => {
+    const position = new three.Vector3()
+    const quaternion = new three.Quaternion()
+    worldcamera.getWorldPosition(position)
+    worldcamera.getWorldQuaternion(quaternion)
+    const deltaPosition = position.clone().sub(dragStartPosition)
+    const deltaQuaternion = dragStartQuaternion.clone().inverse().multiply(quaternion)
+    return {
+      startPosition: dragStartPosition,
+      startQuaternion: dragStartQuaternion,
+      deltaPosition: deltaPosition,
+      deltaQuaternion: deltaQuaternion,
+      position: position,
+      quaternion: quaternion
+    }
+  }
   ecs.on('init', () => {
     root.addEventListener('click', (e) => {
-      if (!islocked) root.requestPointerLock()
-      else onclick(e)
+      if (!islocked) return root.requestPointerLock()
+    })
+    root.addEventListener('mousedown', (e) => {
+      if (!islocked) return
+      mouseIsDown = true
+      mouseDownAt = Date.now()
+      worldcamera.getWorldPosition(dragStartPosition)
+      worldcamera.getWorldQuaternion(dragStartQuaternion)
+    })
+    root.addEventListener('mousemove', (e) => {
+      if (!islocked || !mouseIsDown) return
+      const drag = calcDrag()
+      if (mouseDownAt && (Date.now() - mouseDownAt > 200 || drag.deltaPosition.lengthSq() > 0.1 || drag.deltaQuaternion.lengthSq() > 0.1))
+        mouseDownAt = null
+    })
+    root.addEventListener('mouseup', (e) => {
+      if (!islocked) return
+      mouseIsDown = false
+      if (mouseDownAt && Date.now() - mouseDownAt < 200) {
+        mouseDownAt = null
+        ecs.emit('pointer click')
+        return
+      }
+      const drag = calcDrag()
+      ecs.emit('dragging finished', null, drag)
     })
     document.addEventListener('pointerlockchange', () => {
       if (document.pointerLockElement === root) ecs.emit('pointer captured')
@@ -190,5 +231,9 @@ inject('pod', () => {
     camera.body.position.add(impulse)
     movementX = 0
     movementY = 0
+    if (mouseIsDown) {
+      if (mouseDownAt && (Date.now() - mouseDownAt > 200)) mouseDownAt = null
+      if (!mouseDownAt) ecs.emit('dragging', null, calcDrag())
+    }
   })
 })
