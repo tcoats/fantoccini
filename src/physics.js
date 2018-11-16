@@ -19,13 +19,36 @@ inject('pod', () => {
     solver.iterations = 7
     solver.tolerance = 0.1
     world.solver = new cannon.SplitSolver(solver)
-    world.gravity.set(0,-9.8,0)
+    world.gravity.set(0, -9.8, 0)
     world.broadphase = new cannon.NaiveBroadphase()
 
     const physicsMaterial = new cannon.Material('slipperyMaterial')
     world.addContactMaterial(
       new cannon.ContactMaterial(physicsMaterial, physicsMaterial, 0.0, 0.3))
 
+  })
+
+  let physicsMode = 0
+  ecs.on('physics mode', (id, p) => {
+    physicsMode = p
+    switch (p) {
+    case 0:
+      world.gravity.set(0, -9.8, 0)
+      for (let entity of Object.values(entities)) {
+        entity.body.linearDamping = 0
+        entity.body.angularDamping = 0
+      }
+      break
+    case 1:
+      world.gravity.set(0, 0, 0)
+      for (let entity of Object.values(entities)) {
+        entity.body.linearDamping = 0.5
+        entity.body.angularDamping = 0.5
+      }
+      break
+    case 2:
+      break
+    }
   })
 
   ecs.on('load ground', (id, ground) => {
@@ -57,7 +80,7 @@ inject('pod', () => {
   })
 
   ecs.on('physics delta', (id, dt) => {
-    world.step(1.0 / 60.0, dt / 1000, 3)
+    if (physicsMode != 2) world.step(1.0 / 60.0, dt / 1000, 3)
   })
 
   ecs.on('physics to display delta', (id, dt) => {

@@ -47000,6 +47000,41 @@ inject('pod', function () {
     var physicsMaterial = new cannon.Material('slipperyMaterial');
     world.addContactMaterial(new cannon.ContactMaterial(physicsMaterial, physicsMaterial, 0.0, 0.3));
   });
+  var physicsMode = 0;
+  ecs.on('physics mode', function (id, p) {
+    physicsMode = p;
+
+    switch (p) {
+      case 0:
+        world.gravity.set(0, -9.8, 0);
+
+        var _arr = Object.values(entities);
+
+        for (var _i = 0; _i < _arr.length; _i++) {
+          var entity = _arr[_i];
+          entity.body.linearDamping = 0;
+          entity.body.angularDamping = 0;
+        }
+
+        break;
+
+      case 1:
+        world.gravity.set(0, 0, 0);
+
+        var _arr2 = Object.values(entities);
+
+        for (var _i2 = 0; _i2 < _arr2.length; _i2++) {
+          var _entity = _arr2[_i2];
+          _entity.body.linearDamping = 0.5;
+          _entity.body.angularDamping = 0.5;
+        }
+
+        break;
+
+      case 2:
+        break;
+    }
+  });
   ecs.on('load ground', function (id, ground) {
     ground.shape = new cannon.Plane();
     ground.body = new cannon.Body({
@@ -47027,13 +47062,13 @@ inject('pod', function () {
     }
   });
   ecs.on('physics delta', function (id, dt) {
-    world.step(1.0 / 60.0, dt / 1000, 3);
+    if (physicsMode != 2) world.step(1.0 / 60.0, dt / 1000, 3);
   });
   ecs.on('physics to display delta', function (id, dt) {
-    var _arr = Object.values(entities);
+    var _arr3 = Object.values(entities);
 
-    for (var _i = 0; _i < _arr.length; _i++) {
-      var shape = _arr[_i];
+    for (var _i3 = 0; _i3 < _arr3.length; _i3++) {
+      var shape = _arr3[_i3];
       shape.mesh.position.copy(shape.body.position);
       shape.mesh.quaternion.copy(shape.body.quaternion);
     }
@@ -47281,7 +47316,8 @@ inject('pod', function () {
     menu: 81,
     xaxis: 90,
     yaxis: 88,
-    zaxis: 67
+    zaxis: 67,
+    physics: 80
   };
 
   var _arr = Object.values(keys);
@@ -47311,6 +47347,10 @@ inject('pod', function () {
   ecs.on('constrain axis', function (id, c) {
     return constraints = c;
   });
+  var physicsMode = 0;
+  ecs.on('physics mode', function (id, p) {
+    return physicsMode = p;
+  });
 
   var onmove = function onmove(e) {
     movementX += e.movementX;
@@ -47324,6 +47364,12 @@ inject('pod', function () {
     switch (e.keyCode) {
       case keys.menu:
         if (inmenu) ecs.emit('menu close');else ecs.emit('menu open');
+        break;
+
+      case keys.physics:
+        physicsMode += 1;
+        physicsMode %= 3;
+        ecs.emit('physics mode', null, physicsMode);
         break;
 
       case keys.xaxis:
@@ -48599,6 +48645,11 @@ inject('pod', function () {
   ecs.on('constrain axis', function (id, c) {
     return constraints = c;
   });
+  var physicsModes = ['running', 'molasses', 'disabled'];
+  var physicsMode = 0;
+  ecs.on('physics mode', function (id, p) {
+    return physicsMode = p;
+  });
 
   var h = require('snabbdom/h').default;
 
@@ -48611,14 +48662,7 @@ inject('pod', function () {
       if (spotlight) elements.push([spotlight.mesh.position, h('div.test', "[".concat(spotlight.mesh.position.x.toFixed(2), ", ").concat(spotlight.mesh.position.y.toFixed(2), ", ").concat(spotlight.mesh.position.z.toFixed(2), "]"))]);
     }
 
-    return h('div#root', [h('div', {
-      style: {
-        position: 'absolute',
-        left: '60px',
-        bottom: '0px',
-        height: '50px'
-      }
-    }, [constraints.x ? 'x' : '', h('br'), constraints.y ? 'y' : '', h('br'), constraints.z ? 'z' : ''])].concat(_toConsumableArray(elements.map(function (e) {
+    return h('div#root', [h('div.constraints', [constraints.x ? 'x' : '', h('br'), constraints.y ? 'y' : '', h('br'), constraints.z ? 'z' : '']), h('div.crosshair'), inmenu ? h('div.physicsmode', "Physics: ".concat(physicsModes[physicsMode])) : null].concat(_toConsumableArray(elements.map(function (e) {
       TEMP.copy(e[0]);
       TEMP.project(worldcamera);
       var x = (TEMP.x + 1.0) * (canvas.width / 2.0);
@@ -48781,7 +48825,7 @@ var parent = module.bundle.parent;
 if ((!parent || !parent.isParcelRequire) && typeof WebSocket !== 'undefined') {
   var hostname = "" || location.hostname;
   var protocol = location.protocol === 'https:' ? 'wss' : 'ws';
-  var ws = new WebSocket(protocol + '://' + hostname + ':' + "64313" + '/');
+  var ws = new WebSocket(protocol + '://' + hostname + ':' + "64695" + '/');
 
   ws.onmessage = function (event) {
     var data = JSON.parse(event.data);

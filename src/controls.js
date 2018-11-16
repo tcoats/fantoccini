@@ -23,7 +23,8 @@ inject('pod', () => {
     menu: 81,
     xaxis: 90,
     yaxis: 88,
-    zaxis: 67
+    zaxis: 67,
+    physics: 80
   }
   for (let key of Object.values(keys)) pressed[key] = false
 
@@ -43,6 +44,9 @@ inject('pod', () => {
   let prevconstraints = null
   ecs.on('constrain axis', (id, c) => constraints = c)
 
+  let physicsMode = 0
+  ecs.on('physics mode', (id, p) => physicsMode = p)
+
   const onmove = (e) => {
     movementX += e.movementX
     movementY += e.movementY
@@ -54,6 +58,11 @@ inject('pod', () => {
     case keys.menu:
       if (inmenu) ecs.emit('menu close')
       else ecs.emit('menu open')
+      break
+    case keys.physics:
+      physicsMode += 1
+      physicsMode %= 3
+      ecs.emit('physics mode', null, physicsMode)
       break
     case keys.xaxis:
     case keys.yaxis:

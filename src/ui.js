@@ -27,6 +27,10 @@ inject('pod', () => {
   let constraints = { x: false, y: false, z: false }
   ecs.on('constrain axis', (id, c) => constraints = c)
 
+  let physicsModes = ['running', 'molasses', 'disabled']
+  let physicsMode = 0
+  ecs.on('physics mode', (id, p) => physicsMode = p)
+
   const h = require('snabbdom/h').default
   const TEMP = new three.Vector3()
   const ui = (state, params, ecs) => {
@@ -37,13 +41,15 @@ inject('pod', () => {
     }
 
     return h('div#root', [
-      h('div', { style: { position: 'absolute', left: '60px', bottom: '0px', height: '50px' } }, [
+      h('div.constraints', [
         constraints.x ? 'x' : '',
         h('br'),
         constraints.y ? 'y' : '',
         h('br'),
         constraints.z ? 'z' : ''
       ]),
+      h('div.crosshair'),
+      inmenu ? h('div.physicsmode', `Physics: ${physicsModes[physicsMode]}`) : null,
       ...elements.map(e => {
         TEMP.copy(e[0])
         TEMP.project(worldcamera)
