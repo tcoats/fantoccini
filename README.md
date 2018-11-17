@@ -3,11 +3,10 @@
 https://github.com/kchapelier/wavefunctioncollapse
 
 ## Bugs
-- [ ] New objects don't get molasses damping
+- [x] New objects don't get molasses damping
 
 ## Editor
-- [x] Full width
-- [x] Proper tracking of mouse state
+- [ ] Type input
 - [ ] New object from asset list
 - [ ] Duplicate selected objects
 - [ ] Delete selected objects

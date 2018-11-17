@@ -68,6 +68,13 @@ inject('pod', () => {
     box.body = new cannon.Body({ mass: 5 })
     box.body.addShape(box.shape)
     box.body.position.copy(box.position)
+    if (physicsMode == 0) {
+      box.body.linearDamping = 1
+      box.body.angularDamping = 1
+    } else if (physicsMode == 1) {
+      box.body.linearDamping = 0.5
+      box.body.angularDamping = 0.5
+    }
     world.addBody(box.body)
     entities[id] = box
   })

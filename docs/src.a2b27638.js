@@ -47052,6 +47052,15 @@ inject('pod', function () {
     });
     box.body.addShape(box.shape);
     box.body.position.copy(box.position);
+
+    if (physicsMode == 0) {
+      box.body.linearDamping = 1;
+      box.body.angularDamping = 1;
+    } else if (physicsMode == 1) {
+      box.body.linearDamping = 0.5;
+      box.body.angularDamping = 0.5;
+    }
+
     world.addBody(box.body);
     entities[id] = box;
   });
@@ -49067,7 +49076,7 @@ var parent = module.bundle.parent;
 if ((!parent || !parent.isParcelRequire) && typeof WebSocket !== 'undefined') {
   var hostname = "" || location.hostname;
   var protocol = location.protocol === 'https:' ? 'wss' : 'ws';
-  var ws = new WebSocket(protocol + '://' + hostname + ':' + "56236" + '/');
+  var ws = new WebSocket(protocol + '://' + hostname + ':' + "56549" + '/');
 
   ws.onmessage = function (event) {
     var data = JSON.parse(event.data);
