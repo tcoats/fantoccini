@@ -47330,9 +47330,6 @@ inject('pod', function () {
     up: 32,
     down: 16,
     menu: 192,
-    xaxis: 90,
-    yaxis: 88,
-    zaxis: 67,
     physics: 80
   };
 
@@ -47345,13 +47342,6 @@ inject('pod', function () {
 
   var menuOpen = true;
   var menuOpenedAt = null;
-  var constraints = {
-    x: false,
-    y: false,
-    z: false
-  };
-  var constrainedAt = null;
-  var constraintsPrev = null;
   var physicsMode = 0;
   var dragPosition = new three.Vector3();
   var dragQuaternion = new three.Quaternion();
@@ -47417,76 +47407,6 @@ inject('pod', function () {
     if (menuOpen && Date.now() - menuOpenedAt > 200) ecs.emit('menu close');
   };
 
-  var onaxisdown = function onaxisdown() {
-    if (!constrainedAt) {
-      constrainedAt = Date.now();
-      constraintsPrev = constraints;
-    }
-
-    ecs.emit('constrain axis', null, {
-      x: !pressed[keys.xaxis],
-      y: !pressed[keys.yaxis],
-      z: !pressed[keys.zaxis]
-    });
-  };
-
-  var onxaxisup = function onxaxisup() {
-    if (!constrainedAt || Date.now() - constrainedAt < 200) {
-      ecs.emit('constrain axis', null, {
-        x: !constraintsPrev.x,
-        y: constraintsPrev.y,
-        z: constraintsPrev.z
-      });
-      constraintsPrev = constraints;
-      constrainedAt = null;
-    } else if (!pressed[keys.yaxis] && !pressed[keys.zaxis]) {
-      ecs.emit('constrain axis', null, constraintsPrev);
-      constrainedAt = null;
-    } else ecs.emit('constrain axis', null, {
-      x: true,
-      y: constraints.y,
-      z: constraints.z
-    });
-  };
-
-  var onyaxisup = function onyaxisup() {
-    if (!constrainedAt || Date.now() - constrainedAt < 200) {
-      ecs.emit('constrain axis', null, {
-        x: constraintsPrev.x,
-        y: !constraintsPrev.y,
-        z: constraintsPrev.z
-      });
-      constraintsPrev = constraints;
-      constrainedAt = null;
-    } else if (!pressed[keys.xaxis] && !pressed[keys.zaxis]) {
-      ecs.emit('constrain axis', null, constraintsPrev);
-      constrainedAt = null;
-    } else ecs.emit('constrain axis', null, {
-      x: constraints.x,
-      y: true,
-      z: constraints.z
-    });
-  };
-
-  var onzaxisup = function onzaxisup() {
-    if (!constrainedAt || Date.now() - constrainedAt < 200) {
-      ecs.emit('constrain axis', null, {
-        x: constraintsPrev.x,
-        y: constraintsPrev.y,
-        z: !constraintsPrev.z
-      });
-      constraintsPrev = constraints;
-      constrainedAt = null;
-    } else if (!pressed[keys.xaxis] && !pressed[keys.yaxis]) {
-      ecs.emit('constrain axis', null, constraintsPrev);
-      constrainedAt = null;
-    } else ecs.emit('constrain axis', null, {
-      x: constraints.x,
-      y: constraints.y,
-      z: true
-    });
-  };
-
   var onkeydown = function onkeydown(e) {
     if (pressed[e.keyCode]) return;
     pressed[e.keyCode] = true;
@@ -47499,12 +47419,6 @@ inject('pod', function () {
       case keys.physics:
         onphysicsdown();
         break;
-
-      case keys.xaxis:
-      case keys.yaxis:
-      case keys.zaxis:
-        onaxisdown();
-        break;
     }
   };
 
@@ -47512,18 +47426,6 @@ inject('pod', function () {
     switch (e.keyCode) {
       case keys.menu:
         onmenuup();
-        break;
-
-      case keys.xaxis:
-        onxaxisup();
-        break;
-
-      case keys.yaxis:
-        onyaxisup();
-        break;
-
-      case keys.zaxis:
-        onzaxisup();
         break;
     }
 
@@ -47537,9 +47439,6 @@ inject('pod', function () {
   ecs.on('menu close', function () {
     menuOpenedAt = null;
     menuOpen = false;
-  });
-  ecs.on('constrain axis', function (id, c) {
-    return constraints = c;
   });
   ecs.on('physics mode', function (id, p) {
     return physicsMode = p;
@@ -47596,7 +47495,166 @@ inject('pod', function () {
     }
   });
 });
-},{"injectinto":"node_modules/injectinto/inject.js","three":"node_modules/three/build/three.module.js","cannon":"node_modules/cannon/build/cannon.js"}],"../../.config/yarn/global/node_modules/parcel-bundler/src/builtins/bundle-url.js":[function(require,module,exports) {
+},{"injectinto":"node_modules/injectinto/inject.js","three":"node_modules/three/build/three.module.js","cannon":"node_modules/cannon/build/cannon.js"}],"src/constraints.js":[function(require,module,exports) {
+var inject = require('injectinto');
+
+inject('pod', function () {
+  var ecs = inject.one('ecs');
+  var keys = {
+    xaxis: 90,
+    yaxis: 88,
+    zaxis: 67
+  };
+  var pressedxaxis = false;
+  var pressedyaxis = false;
+  var pressedzaxis = false;
+  var constraints = {
+    x: false,
+    y: false,
+    z: false
+  };
+  var constrainedAt = null;
+  var constraintsPrev = null;
+
+  var onaxisdown = function onaxisdown() {
+    if (!constrainedAt) {
+      constrainedAt = Date.now();
+      constraintsPrev = constraints;
+    }
+
+    ecs.emit('constrain axis', null, {
+      x: !pressedxaxis,
+      y: !pressedyaxis,
+      z: !pressedzaxis
+    });
+  };
+
+  var onxaxisdown = function onxaxisdown() {
+    if (pressedxaxis) return;
+    pressedxaxis = true;
+    onaxisdown();
+  };
+
+  var onyaxisdown = function onyaxisdown() {
+    if (pressedyaxis) return;
+    pressedyaxis = true;
+    onaxisdown();
+  };
+
+  var onzaxisdown = function onzaxisdown() {
+    if (pressedzaxis) return;
+    pressedzaxis = true;
+    onaxisdown();
+  };
+
+  var onxaxisup = function onxaxisup() {
+    pressedxaxis = false;
+
+    if (!constrainedAt || Date.now() - constrainedAt < 200) {
+      ecs.emit('constrain axis', null, {
+        x: !constraintsPrev.x,
+        y: constraintsPrev.y,
+        z: constraintsPrev.z
+      });
+      constraintsPrev = constraints;
+      constrainedAt = null;
+    } else if (!pressedyaxis && !pressedzaxis) {
+      ecs.emit('constrain axis', null, constraintsPrev);
+      constrainedAt = null;
+    } else ecs.emit('constrain axis', null, {
+      x: true,
+      y: constraints.y,
+      z: constraints.z
+    });
+  };
+
+  var onyaxisup = function onyaxisup() {
+    pressedyaxis = false;
+
+    if (!constrainedAt || Date.now() - constrainedAt < 200) {
+      ecs.emit('constrain axis', null, {
+        x: constraintsPrev.x,
+        y: !constraintsPrev.y,
+        z: constraintsPrev.z
+      });
+      constraintsPrev = constraints;
+      constrainedAt = null;
+    } else if (!pressedxaxis && !pressedzaxis) {
+      ecs.emit('constrain axis', null, constraintsPrev);
+      constrainedAt = null;
+    } else ecs.emit('constrain axis', null, {
+      x: constraints.x,
+      y: true,
+      z: constraints.z
+    });
+  };
+
+  var onzaxisup = function onzaxisup() {
+    pressedzaxis = false;
+
+    if (!constrainedAt || Date.now() - constrainedAt < 200) {
+      ecs.emit('constrain axis', null, {
+        x: constraintsPrev.x,
+        y: constraintsPrev.y,
+        z: !constraintsPrev.z
+      });
+      constraintsPrev = constraints;
+      constrainedAt = null;
+    } else if (!pressedxaxis && !pressedyaxis) {
+      ecs.emit('constrain axis', null, constraintsPrev);
+      constrainedAt = null;
+    } else ecs.emit('constrain axis', null, {
+      x: constraints.x,
+      y: constraints.y,
+      z: true
+    });
+  };
+
+  var onkeydown = function onkeydown(e) {
+    switch (e.keyCode) {
+      case keys.xaxis:
+        onxaxisdown();
+        break;
+
+      case keys.yaxis:
+        onyaxisdown();
+        break;
+
+      case keys.zaxis:
+        onzaxisdown();
+        break;
+    }
+  };
+
+  var onkeyup = function onkeyup(e) {
+    switch (e.keyCode) {
+      case keys.xaxis:
+        onxaxisup();
+        break;
+
+      case keys.yaxis:
+        onyaxisup();
+        break;
+
+      case keys.zaxis:
+        onzaxisup();
+        break;
+    }
+  };
+
+  ecs.on('constrain axis', function (id, c) {
+    return constraints = c;
+  });
+  ecs.on('pointer captured', function () {
+    document.addEventListener('keydown', onkeydown);
+    document.addEventListener('keyup', onkeyup);
+  });
+  ecs.on('pointer released', function () {
+    document.removeEventListener('keydown', onkeydown);
+    document.removeEventListener('keyup', onkeyup);
+  });
+});
+},{"injectinto":"node_modules/injectinto/inject.js"}],"../../.config/yarn/global/node_modules/parcel-bundler/src/builtins/bundle-url.js":[function(require,module,exports) {
 var bundleURL = null;
 
 function getBundleURLCached() {
@@ -48799,6 +48857,8 @@ if (!inject.oneornone('ecs')) {
 
   require('./controls');
 
+  require('./constraints');
+
   require('./ui');
 
   var _iteratorNormalCompletion = true;
@@ -48898,7 +48958,7 @@ if (!inject.oneornone('ecs')) {
     });
   });
 } else location.reload(true);
-},{"injectinto":"node_modules/injectinto/inject.js","cannon":"node_modules/cannon/build/cannon.js","three":"node_modules/three/build/three.module.js","./ecs":"src/ecs.js","./physics":"src/physics.js","./display":"src/display.js","./controls":"src/controls.js","./ui":"src/ui.js"}],"../../.config/yarn/global/node_modules/parcel-bundler/src/builtins/hmr-runtime.js":[function(require,module,exports) {
+},{"injectinto":"node_modules/injectinto/inject.js","cannon":"node_modules/cannon/build/cannon.js","three":"node_modules/three/build/three.module.js","./ecs":"src/ecs.js","./physics":"src/physics.js","./display":"src/display.js","./controls":"src/controls.js","./constraints":"src/constraints.js","./ui":"src/ui.js"}],"../../.config/yarn/global/node_modules/parcel-bundler/src/builtins/hmr-runtime.js":[function(require,module,exports) {
 var global = arguments[3];
 var OVERLAY_ID = '__parcel__error__overlay__';
 var OldModule = module.bundle.Module;
@@ -48925,7 +48985,7 @@ var parent = module.bundle.parent;
 if ((!parent || !parent.isParcelRequire) && typeof WebSocket !== 'undefined') {
   var hostname = "" || location.hostname;
   var protocol = location.protocol === 'https:' ? 'wss' : 'ws';
-  var ws = new WebSocket(protocol + '://' + hostname + ':' + "54759" + '/');
+  var ws = new WebSocket(protocol + '://' + hostname + ':' + "55794" + '/');
 
   ws.onmessage = function (event) {
     var data = JSON.parse(event.data);

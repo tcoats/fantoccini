@@ -25,18 +25,12 @@ inject('pod', () => {
     up: 32,
     down: 16,
     menu: 192,
-    xaxis: 90,
-    yaxis: 88,
-    zaxis: 67,
     physics: 80
   }
   for (let key of Object.values(keys)) pressed[key] = false
 
   let menuOpen = true
   let menuOpenedAt = null
-  let constraints = { x: false, y: false, z: false }
-  let constrainedAt = null
-  let constraintsPrev = null
   let physicsMode = 0
 
   const dragPosition = new three.Vector3()
@@ -96,88 +90,17 @@ inject('pod', () => {
     if (menuOpen && Date.now() - menuOpenedAt > 200)
       ecs.emit('menu close')
   }
-  const onaxisdown = () => {
-    if (!constrainedAt) {
-      constrainedAt = Date.now()
-      constraintsPrev = constraints
-    }
-    ecs.emit('constrain axis', null, {
-      x: !pressed[keys.xaxis],
-      y: !pressed[keys.yaxis],
-      z: !pressed[keys.zaxis]
-    })
-  }
-  const onxaxisup = () => {
-    if (!constrainedAt || Date.now() - constrainedAt < 200) {
-      ecs.emit('constrain axis', null, {
-        x: !constraintsPrev.x,
-        y: constraintsPrev.y,
-        z: constraintsPrev.z
-      })
-      constraintsPrev = constraints
-      constrainedAt = null
-    } else if (!pressed[keys.yaxis] && !pressed[keys.zaxis]) {
-      ecs.emit('constrain axis', null, constraintsPrev)
-      constrainedAt = null
-    } else ecs.emit('constrain axis', null, {
-      x: true,
-      y: constraints.y,
-      z: constraints.z
-    })
-  }
-  const onyaxisup = () => {
-    if (!constrainedAt || Date.now() - constrainedAt < 200) {
-      ecs.emit('constrain axis', null, {
-        x: constraintsPrev.x,
-        y: !constraintsPrev.y,
-        z: constraintsPrev.z
-      })
-      constraintsPrev = constraints
-      constrainedAt = null
-    } else if (!pressed[keys.xaxis] && !pressed[keys.zaxis]) {
-      ecs.emit('constrain axis', null, constraintsPrev)
-      constrainedAt = null
-    } else ecs.emit('constrain axis', null, {
-      x: constraints.x,
-      y: true,
-      z: constraints.z
-    })
-  }
-  const onzaxisup = () => {
-    if (!constrainedAt || Date.now() - constrainedAt < 200) {
-      ecs.emit('constrain axis', null, {
-        x: constraintsPrev.x,
-        y: constraintsPrev.y,
-        z: !constraintsPrev.z
-      })
-      constraintsPrev = constraints
-      constrainedAt = null
-    } else if (!pressed[keys.xaxis] && !pressed[keys.yaxis]) {
-      ecs.emit('constrain axis', null, constraintsPrev)
-      constrainedAt = null
-    } else ecs.emit('constrain axis', null, {
-      x: constraints.x,
-      y: constraints.y,
-      z: true
-    })
-  }
   const onkeydown = (e) => {
     if (pressed[e.keyCode]) return
     pressed[e.keyCode] = true
     switch (e.keyCode) {
       case keys.menu: onmenudown(); break;
       case keys.physics: onphysicsdown(); break;
-      case keys.xaxis:
-      case keys.yaxis:
-      case keys.zaxis: onaxisdown(); break;
     }
   }
   const onkeyup = (e) => {
     switch (e.keyCode) {
       case keys.menu: onmenuup(); break;
-      case keys.xaxis: onxaxisup(); break;
-      case keys.yaxis: onyaxisup(); break;
-      case keys.zaxis: onzaxisup(); break;
     }
     pressed[e.keyCode] = false
   }
@@ -190,7 +113,6 @@ inject('pod', () => {
     menuOpenedAt = null
     menuOpen = false
   })
-  ecs.on('constrain axis', (id, c) => constraints = c)
   ecs.on('physics mode', (id, p) => physicsMode = p)
   ecs.on('load world camera', (id, c) => worldcamera = c)
   ecs.on('load camera', (id, p) => camera = p)

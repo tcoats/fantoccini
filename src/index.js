@@ -8,6 +8,7 @@ if (!inject.oneornone('ecs')) {
   require('./physics')
   require('./display')
   require('./controls')
+  require('./constraints')
   require('./ui')
 
   for (let pod of inject.many('pod')) pod()
