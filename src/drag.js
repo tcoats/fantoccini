@@ -39,8 +39,7 @@ inject('pod', () => {
       ecs.emit('pointer click')
       return
     }
-    const drag = dragCalc()
-    ecs.emit('dragging finished', null, drag)
+    ecs.emit('dragging finished', null, dragCalc())
   }
   const onmove = (e) => {
     if (!mouseIsDown) return
@@ -49,12 +48,16 @@ inject('pod', () => {
       mouseDownAt = null
   }
   ecs.on('load world camera', (id, c) => worldcamera = c)
-  ecs.on('pointer captured', () => {
+  ecs.on('drag enabled', () => {
     document.addEventListener('mousedown', onmousedown)
     document.addEventListener('mouseup', onmouseup)
     document.addEventListener('mousemove', onmove)
   })
-  ecs.on('pointer released', () => {
+  ecs.on('drag disabled', () => {
+    if (mouseIsDown && !mouseDownAt)
+      ecs.emit('dragging finished', null, dragCalc())
+    mouseIsDown = false
+    mouseDownAt = null
     document.removeEventListener('mousedown', onmousedown)
     document.removeEventListener('mouseup', onmouseup)
     document.removeEventListener('mousemove', onmove)

@@ -3,7 +3,8 @@ inject('pod', () => {
   const ecs = inject.one('ecs')
   const keys = {
     menu: 192,
-    physics: 80
+    physics: 80,
+    input: 73
   }
   let menuDown = false
   let menuOpen = true
@@ -38,6 +39,9 @@ inject('pod', () => {
       case keys.physics:
         physicsDown = false
         break
+      case keys.input:
+        ecs.emit('input enabled')
+        break
     }
   }
 
@@ -50,11 +54,14 @@ inject('pod', () => {
     menuOpenedAt = null
     menuOpen = false
   })
-  ecs.on('pointer captured', () => {
+  ecs.on('hotkeys enabled', () => {
     document.addEventListener('keydown', onkeydown)
     document.addEventListener('keyup', onkeyup)
   })
-  ecs.on('pointer released', () => {
+  ecs.on('hotkeys disabled', () => {
+    menuDown = false
+    menuOpenedAt = null
+    physicsDown = false
     document.removeEventListener('keydown', onkeydown)
     document.removeEventListener('keyup', onkeyup)
   })

@@ -53,12 +53,12 @@ inject('pod', () => {
 
   ecs.on('load world camera', (id, c) => worldcamera = c)
   ecs.on('load camera', (id, p) => camera = p)
-  ecs.on('pointer captured', () => {
+  ecs.on('controls enabled', () => {
     document.addEventListener('mousemove', onmove)
     document.addEventListener('keydown', onkeydown)
     document.addEventListener('keyup', onkeyup)
   })
-  ecs.on('pointer released', () => {
+  ecs.on('controls disabled', () => {
     document.removeEventListener('mousemove', onmove)
     document.removeEventListener('keydown', onkeydown)
     document.removeEventListener('keyup', onkeyup)

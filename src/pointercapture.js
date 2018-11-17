@@ -14,9 +14,20 @@ inject('pod', () => {
       if (!islocked) root.requestPointerLock()
     })
     document.addEventListener('pointerlockchange', () => {
-      if (document.pointerLockElement === root)
+      if (document.pointerLockElement === root) {
         ecs.emit('pointer captured')
-      else ecs.emit('pointer released')
+        ecs.emit('drag enabled')
+        ecs.emit('controls enabled')
+        ecs.emit('hotkeys enabled')
+        ecs.emit('constraints enabled')
+      }
+      else {
+        ecs.emit('pointer released')
+        ecs.emit('drag disabled')
+        ecs.emit('controls disabled')
+        ecs.emit('hotkeys disabled')
+        ecs.emit('constraints disabled')
+      }
     })
   })
 })

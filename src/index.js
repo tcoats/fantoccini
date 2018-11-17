@@ -12,6 +12,7 @@ if (!inject.oneornone('ecs')) {
   require('./drag')
   require('./hotkeys')
   require('./pointercapture')
+  require('./input')
   require('./ui')
 
   for (let pod of inject.many('pod')) pod()
@@ -64,6 +65,13 @@ if (!inject.oneornone('ecs')) {
       last = current
     }
     window.requestAnimationFrame(animate)
+  })
+
+  ecs.on('input updated', (id, input) => {
+    console.log(input)
+  })
+  ecs.on('input submitted', (id, input) => {
+    console.log(input)
   })
 
   let worldcamera  = null

@@ -6,7 +6,7 @@ https://github.com/kchapelier/wavefunctioncollapse
 - [x] New objects don't get molasses damping
 
 ## Editor
-- [ ] Type input
+- [x] Type input
 - [ ] New object from asset list
 - [ ] Duplicate selected objects
 - [ ] Delete selected objects

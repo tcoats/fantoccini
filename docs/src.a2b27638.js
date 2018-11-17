@@ -47000,38 +47000,44 @@ inject('pod', function () {
     var physicsMaterial = new cannon.Material('slipperyMaterial');
     world.addContactMaterial(new cannon.ContactMaterial(physicsMaterial, physicsMaterial, 0.0, 0.3));
   });
+
+  var setDamping = function setDamping(body, damping) {
+    body.linearDamping = damping;
+    body.angularDamping = damping;
+  };
+
   var physicsMode = 0;
+  var physics = {
+    on: 0,
+    molasses: 1,
+    off: 2
+  };
   ecs.on('physics mode', function (id, p) {
     physicsMode = p;
 
     switch (p) {
-      case 0:
+      case physics.on:
         world.gravity.set(0, -9.8, 0);
 
         var _arr = Object.values(entities);
 
         for (var _i = 0; _i < _arr.length; _i++) {
           var entity = _arr[_i];
-          entity.body.linearDamping = 0;
-          entity.body.angularDamping = 0;
+          setDamping(entity.body, 0);
         }
 
         break;
 
-      case 1:
+      case physics.molasses:
         world.gravity.set(0, 0, 0);
 
         var _arr2 = Object.values(entities);
 
         for (var _i2 = 0; _i2 < _arr2.length; _i2++) {
           var _entity = _arr2[_i2];
-          _entity.body.linearDamping = 0.5;
-          _entity.body.angularDamping = 0.5;
+          setDamping(_entity.body, 0.5);
         }
 
-        break;
-
-      case 2:
         break;
     }
   });
@@ -47053,12 +47059,14 @@ inject('pod', function () {
     box.body.addShape(box.shape);
     box.body.position.copy(box.position);
 
-    if (physicsMode == 0) {
-      box.body.linearDamping = 1;
-      box.body.angularDamping = 1;
-    } else if (physicsMode == 1) {
-      box.body.linearDamping = 0.5;
-      box.body.angularDamping = 0.5;
+    switch (physicsMode) {
+      case physics.on:
+        setDamping(box.body, 0);
+        break;
+
+      case physics.molasses:
+        setDamping(box.body, 0.5);
+        break;
     }
 
     world.addBody(box.body);
@@ -47408,12 +47416,12 @@ inject('pod', function () {
   ecs.on('load camera', function (id, p) {
     return camera = p;
   });
-  ecs.on('pointer captured', function () {
+  ecs.on('controls enabled', function () {
     document.addEventListener('mousemove', onmove);
     document.addEventListener('keydown', onkeydown);
     document.addEventListener('keyup', onkeyup);
   });
-  ecs.on('pointer released', function () {
+  ecs.on('controls disabled', function () {
     document.removeEventListener('mousemove', onmove);
     document.removeEventListener('keydown', onkeydown);
     document.removeEventListener('keyup', onkeyup);
@@ -47564,11 +47572,15 @@ inject('pod', function () {
   ecs.on('constrain axis', function (id, c) {
     return constraints = c;
   });
-  ecs.on('pointer captured', function () {
+  ecs.on('constraints enabled', function () {
     document.addEventListener('keydown', onkeydown);
     document.addEventListener('keyup', onkeyup);
   });
-  ecs.on('pointer released', function () {
+  ecs.on('constraints disabled', function () {
+    pressedxaxis = false;
+    pressedyaxis = false;
+    pressedzaxis = false;
+    constrainedAt = null;
     document.removeEventListener('keydown', onkeydown);
     document.removeEventListener('keyup', onkeyup);
   });
@@ -47622,8 +47634,7 @@ inject('pod', function () {
       return;
     }
 
-    var drag = dragCalc();
-    ecs.emit('dragging finished', null, drag);
+    ecs.emit('dragging finished', null, dragCalc());
   };
 
   var onmove = function onmove(e) {
@@ -47635,12 +47646,15 @@ inject('pod', function () {
   ecs.on('load world camera', function (id, c) {
     return worldcamera = c;
   });
-  ecs.on('pointer captured', function () {
+  ecs.on('drag enabled', function () {
     document.addEventListener('mousedown', onmousedown);
     document.addEventListener('mouseup', onmouseup);
     document.addEventListener('mousemove', onmove);
   });
-  ecs.on('pointer released', function () {
+  ecs.on('drag disabled', function () {
+    if (mouseIsDown && !mouseDownAt) ecs.emit('dragging finished', null, dragCalc());
+    mouseIsDown = false;
+    mouseDownAt = null;
     document.removeEventListener('mousedown', onmousedown);
     document.removeEventListener('mouseup', onmouseup);
     document.removeEventListener('mousemove', onmove);
@@ -47659,7 +47673,8 @@ inject('pod', function () {
   var ecs = inject.one('ecs');
   var keys = {
     menu: 192,
-    physics: 80
+    physics: 80,
+    input: 73
   };
   var menuDown = false;
   var menuOpen = true;
@@ -47695,6 +47710,10 @@ inject('pod', function () {
       case keys.physics:
         physicsDown = false;
         break;
+
+      case keys.input:
+        ecs.emit('input enabled');
+        break;
     }
   };
 
@@ -47709,11 +47728,14 @@ inject('pod', function () {
     menuOpenedAt = null;
     menuOpen = false;
   });
-  ecs.on('pointer captured', function () {
+  ecs.on('hotkeys enabled', function () {
     document.addEventListener('keydown', onkeydown);
     document.addEventListener('keyup', onkeyup);
   });
-  ecs.on('pointer released', function () {
+  ecs.on('hotkeys disabled', function () {
+    menuDown = false;
+    menuOpenedAt = null;
+    physicsDown = false;
     document.removeEventListener('keydown', onkeydown);
     document.removeEventListener('keyup', onkeyup);
   });
@@ -47735,8 +47757,70 @@ inject('pod', function () {
       if (!islocked) root.requestPointerLock();
     });
     document.addEventListener('pointerlockchange', function () {
-      if (document.pointerLockElement === root) ecs.emit('pointer captured');else ecs.emit('pointer released');
+      if (document.pointerLockElement === root) {
+        ecs.emit('pointer captured');
+        ecs.emit('drag enabled');
+        ecs.emit('controls enabled');
+        ecs.emit('hotkeys enabled');
+        ecs.emit('constraints enabled');
+      } else {
+        ecs.emit('pointer released');
+        ecs.emit('drag disabled');
+        ecs.emit('controls disabled');
+        ecs.emit('hotkeys disabled');
+        ecs.emit('constraints disabled');
+      }
     });
+  });
+});
+},{"injectinto":"node_modules/injectinto/inject.js"}],"src/input.js":[function(require,module,exports) {
+var inject = require('injectinto');
+
+inject('pod', function () {
+  var ecs = inject.one('ecs');
+  var keys = {
+    cancel: 192
+  };
+  var input = '';
+
+  var onkeydown = function onkeydown(e) {
+    if (e.key == 'Enter') {
+      ecs.emit('input disabled');
+      ecs.emit('input submitted', null, input);
+    }
+
+    if (e.key.length == 1) input += e.key;
+    if (e.key == 'Backspace') input = input.slice(0, -1);
+    ecs.emit('input updated', null, input);
+  };
+
+  var onkeyup = function onkeyup(e) {
+    if (e.keyCode == keys.cancel) {
+      ecs.emit('input disabled');
+    }
+  };
+
+  ecs.on('input enabled', function () {
+    ecs.emit('drag disabled');
+    ecs.emit('controls disabled');
+    ecs.emit('hotkeys disabled');
+    ecs.emit('constraints disabled');
+    document.addEventListener('keydown', onkeydown);
+    document.addEventListener('keyup', onkeyup);
+    input = '';
+  });
+  ecs.on('pointer released', function () {
+    document.removeEventListener('keydown', onkeydown);
+    document.removeEventListener('keyup', onkeyup);
+    input = '';
+  });
+  ecs.on('input disabled', function () {
+    ecs.emit('drag enabled');
+    ecs.emit('controls enabled');
+    ecs.emit('hotkeys enabled');
+    ecs.emit('constraints enabled');
+    document.removeEventListener('keydown', onkeydown);
+    document.removeEventListener('keyup', onkeyup);
   });
 });
 },{"injectinto":"node_modules/injectinto/inject.js"}],"../../.config/yarn/global/node_modules/parcel-bundler/src/builtins/bundle-url.js":[function(require,module,exports) {
@@ -48950,6 +49034,8 @@ if (!inject.oneornone('ecs')) {
 
   require('./pointercapture');
 
+  require('./input');
+
   require('./ui');
 
   var _iteratorNormalCompletion = true;
@@ -49032,6 +49118,12 @@ if (!inject.oneornone('ecs')) {
 
     window.requestAnimationFrame(animate);
   });
+  ecs.on('input updated', function (id, input) {
+    console.log(input);
+  });
+  ecs.on('input submitted', function (id, input) {
+    console.log(input);
+  });
   var worldcamera = null;
   ecs.on('load world camera', function (id, c) {
     return worldcamera = c;
@@ -49049,7 +49141,7 @@ if (!inject.oneornone('ecs')) {
     });
   });
 } else location.reload(true);
-},{"injectinto":"node_modules/injectinto/inject.js","cannon":"node_modules/cannon/build/cannon.js","three":"node_modules/three/build/three.module.js","./ecs":"src/ecs.js","./physics":"src/physics.js","./display":"src/display.js","./controls":"src/controls.js","./constraints":"src/constraints.js","./drag":"src/drag.js","./hotkeys":"src/hotkeys.js","./pointercapture":"src/pointercapture.js","./ui":"src/ui.js"}],"../../.config/yarn/global/node_modules/parcel-bundler/src/builtins/hmr-runtime.js":[function(require,module,exports) {
+},{"injectinto":"node_modules/injectinto/inject.js","cannon":"node_modules/cannon/build/cannon.js","three":"node_modules/three/build/three.module.js","./ecs":"src/ecs.js","./physics":"src/physics.js","./display":"src/display.js","./controls":"src/controls.js","./constraints":"src/constraints.js","./drag":"src/drag.js","./hotkeys":"src/hotkeys.js","./pointercapture":"src/pointercapture.js","./input":"src/input.js","./ui":"src/ui.js"}],"../../.config/yarn/global/node_modules/parcel-bundler/src/builtins/hmr-runtime.js":[function(require,module,exports) {
 var global = arguments[3];
 var OVERLAY_ID = '__parcel__error__overlay__';
 var OldModule = module.bundle.Module;

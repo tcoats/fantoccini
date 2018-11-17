@@ -106,11 +106,15 @@ inject('pod', () => {
   }
 
   ecs.on('constrain axis', (id, c) => constraints = c)
-  ecs.on('pointer captured', () => {
+  ecs.on('constraints enabled', () => {
     document.addEventListener('keydown', onkeydown)
     document.addEventListener('keyup', onkeyup)
   })
-  ecs.on('pointer released', () => {
+  ecs.on('constraints disabled', () => {
+    pressedxaxis = false
+    pressedyaxis = false
+    pressedzaxis = false
+    constrainedAt = null
     document.removeEventListener('keydown', onkeydown)
     document.removeEventListener('keyup', onkeyup)
   })

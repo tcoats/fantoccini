@@ -25,28 +25,27 @@ inject('pod', () => {
     const physicsMaterial = new cannon.Material('slipperyMaterial')
     world.addContactMaterial(
       new cannon.ContactMaterial(physicsMaterial, physicsMaterial, 0.0, 0.3))
-
   })
 
+  const setDamping = (body, damping) => {
+    body.linearDamping = damping
+    body.angularDamping = damping
+  }
+
   let physicsMode = 0
+  const physics = { on: 0, molasses: 1, off: 2 }
   ecs.on('physics mode', (id, p) => {
     physicsMode = p
     switch (p) {
-    case 0:
+    case physics.on:
       world.gravity.set(0, -9.8, 0)
-      for (let entity of Object.values(entities)) {
-        entity.body.linearDamping = 0
-        entity.body.angularDamping = 0
-      }
+      for (let entity of Object.values(entities))
+        setDamping(entity.body, 0)
       break
-    case 1:
+    case physics.molasses:
       world.gravity.set(0, 0, 0)
-      for (let entity of Object.values(entities)) {
-        entity.body.linearDamping = 0.5
-        entity.body.angularDamping = 0.5
-      }
-      break
-    case 2:
+      for (let entity of Object.values(entities))
+        setDamping(entity.body, 0.5)
       break
     }
   })
@@ -62,18 +61,14 @@ inject('pod', () => {
 
   ecs.on('load box', (id, box) => {
     const halfExtents = box.halfExtents
-      ? box.halfExtents
-      : new cannon.Vec3(1, 1, 1)
+      ? box.halfExtents : new cannon.Vec3(1, 1, 1)
     box.shape = new cannon.Box(halfExtents)
     box.body = new cannon.Body({ mass: 5 })
     box.body.addShape(box.shape)
     box.body.position.copy(box.position)
-    if (physicsMode == 0) {
-      box.body.linearDamping = 1
-      box.body.angularDamping = 1
-    } else if (physicsMode == 1) {
-      box.body.linearDamping = 0.5
-      box.body.angularDamping = 0.5
+    switch (physicsMode) {
+      case physics.on: setDamping(box.body, 0); break;
+      case physics.molasses: setDamping(box.body, 0.5); break;
     }
     world.addBody(box.body)
     entities[id] = box
