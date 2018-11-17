@@ -24,90 +24,84 @@ inject('pod', () => {
       z: !pressedzaxis
     })
   }
-  const onxaxisdown = () => {
-    if (pressedxaxis) return
-    pressedxaxis = true
-    onaxisdown()
-  }
-  const onyaxisdown = () => {
-    if (pressedyaxis) return
-    pressedyaxis = true
-    onaxisdown()
-  }
-  const onzaxisdown = () => {
-    if (pressedzaxis) return
-    pressedzaxis = true
-    onaxisdown()
-  }
-  const onxaxisup = () => {
-    pressedxaxis = false
-    if (!constrainedAt || Date.now() - constrainedAt < 200) {
-      ecs.emit('constrain axis', null, {
-        x: !constraintsPrev.x,
-        y: constraintsPrev.y,
-        z: constraintsPrev.z
-      })
-      constraintsPrev = constraints
-      constrainedAt = null
-    } else if (!pressedyaxis && !pressedzaxis) {
-      ecs.emit('constrain axis', null, constraintsPrev)
-      constrainedAt = null
-    } else ecs.emit('constrain axis', null, {
-      x: true,
-      y: constraints.y,
-      z: constraints.z
-    })
-  }
-  const onyaxisup = () => {
-    pressedyaxis = false
-    if (!constrainedAt || Date.now() - constrainedAt < 200) {
-      ecs.emit('constrain axis', null, {
-        x: constraintsPrev.x,
-        y: !constraintsPrev.y,
-        z: constraintsPrev.z
-      })
-      constraintsPrev = constraints
-      constrainedAt = null
-    } else if (!pressedxaxis && !pressedzaxis) {
-      ecs.emit('constrain axis', null, constraintsPrev)
-      constrainedAt = null
-    } else ecs.emit('constrain axis', null, {
-      x: constraints.x,
-      y: true,
-      z: constraints.z
-    })
-  }
-  const onzaxisup = () => {
-    pressedzaxis = false
-    if (!constrainedAt || Date.now() - constrainedAt < 200) {
-      ecs.emit('constrain axis', null, {
-        x: constraintsPrev.x,
-        y: constraintsPrev.y,
-        z: !constraintsPrev.z
-      })
-      constraintsPrev = constraints
-      constrainedAt = null
-    } else if (!pressedxaxis && !pressedyaxis) {
-      ecs.emit('constrain axis', null, constraintsPrev)
-      constrainedAt = null
-    } else ecs.emit('constrain axis', null, {
-      x: constraints.x,
-      y: constraints.y,
-      z: true
-    })
-  }
   const onkeydown = (e) => {
     switch (e.keyCode) {
-      case keys.xaxis: onxaxisdown(); break;
-      case keys.yaxis: onyaxisdown(); break;
-      case keys.zaxis: onzaxisdown(); break;
+      case keys.xaxis:
+        if (pressedxaxis) return
+        pressedxaxis = true
+        onaxisdown()
+        break
+      case keys.yaxis:
+        if (pressedyaxis) return
+        pressedyaxis = true
+        onaxisdown()
+        break
+      case keys.zaxis:
+        if (pressedzaxis) return
+        pressedzaxis = true
+        onaxisdown()
+        break
     }
   }
   const onkeyup = (e) => {
     switch (e.keyCode) {
-      case keys.xaxis: onxaxisup(); break;
-      case keys.yaxis: onyaxisup(); break;
-      case keys.zaxis: onzaxisup(); break;
+      case keys.xaxis:
+        pressedxaxis = false
+        if (!constrainedAt || Date.now() - constrainedAt < 200) {
+          ecs.emit('constrain axis', null, {
+            x: !constraintsPrev.x,
+            y: constraintsPrev.y,
+            z: constraintsPrev.z
+          })
+          constraintsPrev = constraints
+          constrainedAt = null
+        } else if (!pressedyaxis && !pressedzaxis) {
+          ecs.emit('constrain axis', null, constraintsPrev)
+          constrainedAt = null
+        } else ecs.emit('constrain axis', null, {
+          x: true,
+          y: constraints.y,
+          z: constraints.z
+        })
+        break
+      case keys.yaxis:
+        pressedyaxis = false
+        if (!constrainedAt || Date.now() - constrainedAt < 200) {
+          ecs.emit('constrain axis', null, {
+            x: constraintsPrev.x,
+            y: !constraintsPrev.y,
+            z: constraintsPrev.z
+          })
+          constraintsPrev = constraints
+          constrainedAt = null
+        } else if (!pressedxaxis && !pressedzaxis) {
+          ecs.emit('constrain axis', null, constraintsPrev)
+          constrainedAt = null
+        } else ecs.emit('constrain axis', null, {
+          x: constraints.x,
+          y: true,
+          z: constraints.z
+        })
+        break
+      case keys.zaxis:
+        pressedzaxis = false
+        if (!constrainedAt || Date.now() - constrainedAt < 200) {
+          ecs.emit('constrain axis', null, {
+            x: constraintsPrev.x,
+            y: constraintsPrev.y,
+            z: !constraintsPrev.z
+          })
+          constraintsPrev = constraints
+          constrainedAt = null
+        } else if (!pressedxaxis && !pressedyaxis) {
+          ecs.emit('constrain axis', null, constraintsPrev)
+          constrainedAt = null
+        } else ecs.emit('constrain axis', null, {
+          x: constraints.x,
+          y: constraints.y,
+          z: true
+        })
+        break
     }
   }
 

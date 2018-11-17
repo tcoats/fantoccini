@@ -9,6 +9,8 @@ if (!inject.oneornone('ecs')) {
   require('./display')
   require('./controls')
   require('./constraints')
+  require('./drag')
+  require('./hotkeys')
   require('./ui')
 
   for (let pod of inject.many('pod')) pod()

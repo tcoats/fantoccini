@@ -47317,10 +47317,6 @@ inject('pod', function () {
   var islocked = false;
   var mouseDeltaX = 0;
   var mouseDeltaY = 0;
-  var mouseIsDown = false;
-  var mouseDownAt = null;
-  var dragStartPosition = new three.Vector3();
-  var dragStartQuaternion = new three.Quaternion();
   var pressed = {};
   var keys = {
     forward: 87,
@@ -47328,9 +47324,7 @@ inject('pod', function () {
     left: 65,
     right: 68,
     up: 32,
-    down: 16,
-    menu: 192,
-    physics: 80
+    down: 16
   };
 
   var _arr = Object.values(keys);
@@ -47340,109 +47334,20 @@ inject('pod', function () {
     pressed[key] = false;
   }
 
-  var menuOpen = true;
-  var menuOpenedAt = null;
-  var physicsMode = 0;
-  var dragPosition = new three.Vector3();
-  var dragQuaternion = new three.Quaternion();
-  var dragDeltaPosition = new three.Vector3();
-  var dragDeltaQuaternion = new three.Quaternion();
-
-  var dragCalc = function dragCalc() {
-    worldcamera.getWorldPosition(dragPosition);
-    worldcamera.getWorldQuaternion(dragQuaternion);
-    dragDeltaPosition.copy(dragPosition).sub(dragStartPosition);
-    dragDeltaQuaternion.copy(dragStartQuaternion).inverse().multiply(dragQuaternion);
-    return {
-      startPosition: dragStartPosition,
-      startQuaternion: dragStartQuaternion,
-      deltaPosition: dragDeltaPosition,
-      deltaQuaternion: dragDeltaQuaternion,
-      position: dragPosition,
-      quaternion: dragQuaternion
-    };
-  };
-
-  var onmousedown = function onmousedown(e) {
-    if (!islocked) return;
-    mouseIsDown = true;
-    mouseDownAt = Date.now();
-    worldcamera.getWorldPosition(dragStartPosition);
-    worldcamera.getWorldQuaternion(dragStartQuaternion);
-  };
-
-  var onmouseup = function onmouseup(e) {
-    if (!islocked) return;
-    mouseIsDown = false;
-
-    if (mouseDownAt && Date.now() - mouseDownAt < 200) {
-      mouseDownAt = null;
-      ecs.emit('pointer click');
-      return;
-    }
-
-    var drag = dragCalc();
-    ecs.emit('dragging finished', null, drag);
-  };
-
   var onmove = function onmove(e) {
     mouseDeltaX += e.movementX;
     mouseDeltaY += e.movementY;
-    if (!mouseIsDown) return;
-    var drag = dragCalc();
-    if (mouseDownAt && (Date.now() - mouseDownAt > 200 || drag.deltaPosition.lengthSq() > 0.1 || drag.deltaQuaternion.lengthSq() > 0.1)) mouseDownAt = null;
-  };
-
-  var onphysicsdown = function onphysicsdown() {
-    physicsMode += 1;
-    physicsMode %= 3;
-    ecs.emit('physics mode', null, physicsMode);
-  };
-
-  var onmenudown = function onmenudown() {
-    if (menuOpen) ecs.emit('menu close');else ecs.emit('menu open');
-  };
-
-  var onmenuup = function onmenuup() {
-    if (menuOpen && Date.now() - menuOpenedAt > 200) ecs.emit('menu close');
   };
 
   var onkeydown = function onkeydown(e) {
     if (pressed[e.keyCode]) return;
     pressed[e.keyCode] = true;
-
-    switch (e.keyCode) {
-      case keys.menu:
-        onmenudown();
-        break;
-
-      case keys.physics:
-        onphysicsdown();
-        break;
-    }
   };
 
   var onkeyup = function onkeyup(e) {
-    switch (e.keyCode) {
-      case keys.menu:
-        onmenuup();
-        break;
-    }
-
     pressed[e.keyCode] = false;
   };
 
-  ecs.on('menu open', function () {
-    menuOpenedAt = Date.now();
-    menuOpen = true;
-  });
-  ecs.on('menu close', function () {
-    menuOpenedAt = null;
-    menuOpen = false;
-  });
-  ecs.on('physics mode', function (id, p) {
-    return physicsMode = p;
-  });
   ecs.on('load world camera', function (id, c) {
     return worldcamera = c;
   });
@@ -47451,16 +47356,12 @@ inject('pod', function () {
   });
   ecs.on('pointer captured', function () {
     islocked = true;
-    document.addEventListener('mousedown', onmousedown);
-    document.addEventListener('mouseup', onmouseup);
     document.addEventListener('mousemove', onmove);
     document.addEventListener('keydown', onkeydown);
     document.addEventListener('keyup', onkeyup);
   });
   ecs.on('pointer released', function () {
     islocked = false;
-    document.removeEventListener('mousedown', onmousedown);
-    document.removeEventListener('mouseup', onmouseup);
     document.removeEventListener('mousemove', onmove);
     document.removeEventListener('keydown', onkeydown);
     document.removeEventListener('keyup', onkeyup);
@@ -47488,11 +47389,6 @@ inject('pod', function () {
     camera.body.position.add(impulse);
     mouseDeltaX = 0;
     mouseDeltaY = 0;
-
-    if (mouseIsDown) {
-      if (mouseDownAt && Date.now() - mouseDownAt > 200) mouseDownAt = null;
-      if (!mouseDownAt) ecs.emit('dragging', null, dragCalc());
-    }
   });
 });
 },{"injectinto":"node_modules/injectinto/inject.js","three":"node_modules/three/build/three.module.js","cannon":"node_modules/cannon/build/cannon.js"}],"src/constraints.js":[function(require,module,exports) {
@@ -47529,99 +47425,24 @@ inject('pod', function () {
     });
   };
 
-  var onxaxisdown = function onxaxisdown() {
-    if (pressedxaxis) return;
-    pressedxaxis = true;
-    onaxisdown();
-  };
-
-  var onyaxisdown = function onyaxisdown() {
-    if (pressedyaxis) return;
-    pressedyaxis = true;
-    onaxisdown();
-  };
-
-  var onzaxisdown = function onzaxisdown() {
-    if (pressedzaxis) return;
-    pressedzaxis = true;
-    onaxisdown();
-  };
-
-  var onxaxisup = function onxaxisup() {
-    pressedxaxis = false;
-
-    if (!constrainedAt || Date.now() - constrainedAt < 200) {
-      ecs.emit('constrain axis', null, {
-        x: !constraintsPrev.x,
-        y: constraintsPrev.y,
-        z: constraintsPrev.z
-      });
-      constraintsPrev = constraints;
-      constrainedAt = null;
-    } else if (!pressedyaxis && !pressedzaxis) {
-      ecs.emit('constrain axis', null, constraintsPrev);
-      constrainedAt = null;
-    } else ecs.emit('constrain axis', null, {
-      x: true,
-      y: constraints.y,
-      z: constraints.z
-    });
-  };
-
-  var onyaxisup = function onyaxisup() {
-    pressedyaxis = false;
-
-    if (!constrainedAt || Date.now() - constrainedAt < 200) {
-      ecs.emit('constrain axis', null, {
-        x: constraintsPrev.x,
-        y: !constraintsPrev.y,
-        z: constraintsPrev.z
-      });
-      constraintsPrev = constraints;
-      constrainedAt = null;
-    } else if (!pressedxaxis && !pressedzaxis) {
-      ecs.emit('constrain axis', null, constraintsPrev);
-      constrainedAt = null;
-    } else ecs.emit('constrain axis', null, {
-      x: constraints.x,
-      y: true,
-      z: constraints.z
-    });
-  };
-
-  var onzaxisup = function onzaxisup() {
-    pressedzaxis = false;
-
-    if (!constrainedAt || Date.now() - constrainedAt < 200) {
-      ecs.emit('constrain axis', null, {
-        x: constraintsPrev.x,
-        y: constraintsPrev.y,
-        z: !constraintsPrev.z
-      });
-      constraintsPrev = constraints;
-      constrainedAt = null;
-    } else if (!pressedxaxis && !pressedyaxis) {
-      ecs.emit('constrain axis', null, constraintsPrev);
-      constrainedAt = null;
-    } else ecs.emit('constrain axis', null, {
-      x: constraints.x,
-      y: constraints.y,
-      z: true
-    });
-  };
-
   var onkeydown = function onkeydown(e) {
     switch (e.keyCode) {
       case keys.xaxis:
-        onxaxisdown();
+        if (pressedxaxis) return;
+        pressedxaxis = true;
+        onaxisdown();
         break;
 
       case keys.yaxis:
-        onyaxisdown();
+        if (pressedyaxis) return;
+        pressedyaxis = true;
+        onaxisdown();
         break;
 
       case keys.zaxis:
-        onzaxisdown();
+        if (pressedzaxis) return;
+        pressedzaxis = true;
+        onaxisdown();
         break;
     }
   };
@@ -47629,21 +47450,220 @@ inject('pod', function () {
   var onkeyup = function onkeyup(e) {
     switch (e.keyCode) {
       case keys.xaxis:
-        onxaxisup();
+        pressedxaxis = false;
+
+        if (!constrainedAt || Date.now() - constrainedAt < 200) {
+          ecs.emit('constrain axis', null, {
+            x: !constraintsPrev.x,
+            y: constraintsPrev.y,
+            z: constraintsPrev.z
+          });
+          constraintsPrev = constraints;
+          constrainedAt = null;
+        } else if (!pressedyaxis && !pressedzaxis) {
+          ecs.emit('constrain axis', null, constraintsPrev);
+          constrainedAt = null;
+        } else ecs.emit('constrain axis', null, {
+          x: true,
+          y: constraints.y,
+          z: constraints.z
+        });
+
         break;
 
       case keys.yaxis:
-        onyaxisup();
+        pressedyaxis = false;
+
+        if (!constrainedAt || Date.now() - constrainedAt < 200) {
+          ecs.emit('constrain axis', null, {
+            x: constraintsPrev.x,
+            y: !constraintsPrev.y,
+            z: constraintsPrev.z
+          });
+          constraintsPrev = constraints;
+          constrainedAt = null;
+        } else if (!pressedxaxis && !pressedzaxis) {
+          ecs.emit('constrain axis', null, constraintsPrev);
+          constrainedAt = null;
+        } else ecs.emit('constrain axis', null, {
+          x: constraints.x,
+          y: true,
+          z: constraints.z
+        });
+
         break;
 
       case keys.zaxis:
-        onzaxisup();
+        pressedzaxis = false;
+
+        if (!constrainedAt || Date.now() - constrainedAt < 200) {
+          ecs.emit('constrain axis', null, {
+            x: constraintsPrev.x,
+            y: constraintsPrev.y,
+            z: !constraintsPrev.z
+          });
+          constraintsPrev = constraints;
+          constrainedAt = null;
+        } else if (!pressedxaxis && !pressedyaxis) {
+          ecs.emit('constrain axis', null, constraintsPrev);
+          constrainedAt = null;
+        } else ecs.emit('constrain axis', null, {
+          x: constraints.x,
+          y: constraints.y,
+          z: true
+        });
+
         break;
     }
   };
 
   ecs.on('constrain axis', function (id, c) {
     return constraints = c;
+  });
+  ecs.on('pointer captured', function () {
+    document.addEventListener('keydown', onkeydown);
+    document.addEventListener('keyup', onkeyup);
+  });
+  ecs.on('pointer released', function () {
+    document.removeEventListener('keydown', onkeydown);
+    document.removeEventListener('keyup', onkeyup);
+  });
+});
+},{"injectinto":"node_modules/injectinto/inject.js"}],"src/drag.js":[function(require,module,exports) {
+var inject = require('injectinto');
+
+inject('pod', function () {
+  var ecs = inject.one('ecs');
+
+  var three = require('three');
+
+  var dragStartPosition = new three.Vector3();
+  var dragStartQuaternion = new three.Quaternion();
+  var mouseIsDown = false;
+  var mouseDownAt = null;
+  var worldcamera = null;
+  var dragPosition = new three.Vector3();
+  var dragQuaternion = new three.Quaternion();
+  var dragDeltaPosition = new three.Vector3();
+  var dragDeltaQuaternion = new three.Quaternion();
+
+  var dragCalc = function dragCalc() {
+    worldcamera.getWorldPosition(dragPosition);
+    worldcamera.getWorldQuaternion(dragQuaternion);
+    dragDeltaPosition.copy(dragPosition).sub(dragStartPosition);
+    dragDeltaQuaternion.copy(dragStartQuaternion).inverse().multiply(dragQuaternion);
+    return {
+      startPosition: dragStartPosition,
+      startQuaternion: dragStartQuaternion,
+      deltaPosition: dragDeltaPosition,
+      deltaQuaternion: dragDeltaQuaternion,
+      position: dragPosition,
+      quaternion: dragQuaternion
+    };
+  };
+
+  var onmousedown = function onmousedown(e) {
+    mouseIsDown = true;
+    mouseDownAt = Date.now();
+    worldcamera.getWorldPosition(dragStartPosition);
+    worldcamera.getWorldQuaternion(dragStartQuaternion);
+  };
+
+  var onmouseup = function onmouseup(e) {
+    mouseIsDown = false;
+
+    if (mouseDownAt && Date.now() - mouseDownAt < 200) {
+      mouseDownAt = null;
+      ecs.emit('pointer click');
+      return;
+    }
+
+    var drag = dragCalc();
+    ecs.emit('dragging finished', null, drag);
+  };
+
+  var onmove = function onmove(e) {
+    if (!mouseIsDown) return;
+    var drag = dragCalc();
+    if (mouseDownAt && (Date.now() - mouseDownAt > 200 || drag.deltaPosition.lengthSq() > 0.1 || drag.deltaQuaternion.lengthSq() > 0.1)) mouseDownAt = null;
+  };
+
+  ecs.on('load world camera', function (id, c) {
+    return worldcamera = c;
+  });
+  ecs.on('pointer captured', function () {
+    document.addEventListener('mousedown', onmousedown);
+    document.addEventListener('mouseup', onmouseup);
+    document.addEventListener('mousemove', onmove);
+  });
+  ecs.on('pointer released', function () {
+    document.removeEventListener('mousedown', onmousedown);
+    document.removeEventListener('mouseup', onmouseup);
+    document.removeEventListener('mousemove', onmove);
+  });
+  ecs.on('event delta', function (id, dt) {
+    if (mouseIsDown) {
+      if (mouseDownAt && Date.now() - mouseDownAt > 200) mouseDownAt = null;
+      if (!mouseDownAt) ecs.emit('dragging', null, dragCalc());
+    }
+  });
+});
+},{"injectinto":"node_modules/injectinto/inject.js","three":"node_modules/three/build/three.module.js"}],"src/hotkeys.js":[function(require,module,exports) {
+var inject = require('injectinto');
+
+inject('pod', function () {
+  var ecs = inject.one('ecs');
+  var keys = {
+    menu: 192,
+    physics: 80
+  };
+  var menuDown = false;
+  var menuOpen = true;
+  var menuOpenedAt = null;
+  var physicsDown = false;
+  var physicsMode = 0;
+
+  var onkeydown = function onkeydown(e) {
+    switch (e.keyCode) {
+      case keys.menu:
+        if (menuDown) return;
+        menuDown = true;
+        if (menuOpen) ecs.emit('menu close');else ecs.emit('menu open');
+        break;
+
+      case keys.physics:
+        if (physicsDown) return;
+        physicsDown = true;
+        physicsMode += 1;
+        physicsMode %= 3;
+        ecs.emit('physics mode', null, physicsMode);
+        break;
+    }
+  };
+
+  var onkeyup = function onkeyup(e) {
+    switch (e.keyCode) {
+      case keys.menu:
+        menuDown = false;
+        if (menuOpen && Date.now() - menuOpenedAt > 200) ecs.emit('menu close');
+        break;
+
+      case keys.physics:
+        physicsDown = false;
+        break;
+    }
+  };
+
+  ecs.on('physics mode', function (id, p) {
+    return physicsMode = p;
+  });
+  ecs.on('menu open', function () {
+    menuOpenedAt = Date.now();
+    menuOpen = true;
+  });
+  ecs.on('menu close', function () {
+    menuOpenedAt = null;
+    menuOpen = false;
   });
   ecs.on('pointer captured', function () {
     document.addEventListener('keydown', onkeydown);
@@ -48859,6 +48879,10 @@ if (!inject.oneornone('ecs')) {
 
   require('./constraints');
 
+  require('./drag');
+
+  require('./hotkeys');
+
   require('./ui');
 
   var _iteratorNormalCompletion = true;
@@ -48958,7 +48982,7 @@ if (!inject.oneornone('ecs')) {
     });
   });
 } else location.reload(true);
-},{"injectinto":"node_modules/injectinto/inject.js","cannon":"node_modules/cannon/build/cannon.js","three":"node_modules/three/build/three.module.js","./ecs":"src/ecs.js","./physics":"src/physics.js","./display":"src/display.js","./controls":"src/controls.js","./constraints":"src/constraints.js","./ui":"src/ui.js"}],"../../.config/yarn/global/node_modules/parcel-bundler/src/builtins/hmr-runtime.js":[function(require,module,exports) {
+},{"injectinto":"node_modules/injectinto/inject.js","cannon":"node_modules/cannon/build/cannon.js","three":"node_modules/three/build/three.module.js","./ecs":"src/ecs.js","./physics":"src/physics.js","./display":"src/display.js","./controls":"src/controls.js","./constraints":"src/constraints.js","./drag":"src/drag.js","./hotkeys":"src/hotkeys.js","./ui":"src/ui.js"}],"../../.config/yarn/global/node_modules/parcel-bundler/src/builtins/hmr-runtime.js":[function(require,module,exports) {
 var global = arguments[3];
 var OVERLAY_ID = '__parcel__error__overlay__';
 var OldModule = module.bundle.Module;
@@ -48985,7 +49009,7 @@ var parent = module.bundle.parent;
 if ((!parent || !parent.isParcelRequire) && typeof WebSocket !== 'undefined') {
   var hostname = "" || location.hostname;
   var protocol = location.protocol === 'https:' ? 'wss' : 'ws';
-  var ws = new WebSocket(protocol + '://' + hostname + ':' + "55794" + '/');
+  var ws = new WebSocket(protocol + '://' + hostname + ':' + "55917" + '/');
 
   ws.onmessage = function (event) {
     var data = JSON.parse(event.data);
