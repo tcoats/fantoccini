@@ -8,11 +8,9 @@ inject('pod', () => {
 
   let camera = null
   let worldcamera = null
-  let islocked = false
 
   let mouseDeltaX = 0
   let mouseDeltaY = 0
-  const pressed = {}
   const keys = {
     forward: 87,
     backward: 83,
@@ -21,43 +19,49 @@ inject('pod', () => {
     up: 32,
     down: 16
   }
-  for (let key of Object.values(keys)) pressed[key] = false
+  let pressedforward = false
+  let pressedbackward = false
+  let pressedleft = false
+  let pressedright = false
+  let pressedup = false
+  let presseddown = false
 
   const onmove = (e) => {
     mouseDeltaX += e.movementX
     mouseDeltaY += e.movementY
   }
   const onkeydown = (e) => {
-    if (pressed[e.keyCode]) return
-    pressed[e.keyCode] = true
+    switch (e.keyCode) {
+      case keys.forward: pressedforward = true; break;
+      case keys.backward: pressedbackward = true; break;
+      case keys.left: pressedleft = true; break;
+      case keys.right: pressedright = true; break;
+      case keys.up: pressedup = true; break;
+      case keys.down: presseddown = true; break;
+    }
   }
   const onkeyup = (e) => {
-    pressed[e.keyCode] = false
+    switch (e.keyCode) {
+      case keys.forward: pressedforward = false; break;
+      case keys.backward: pressedbackward = false; break;
+      case keys.left: pressedleft = false; break;
+      case keys.right: pressedright = false; break;
+      case keys.up: pressedup = false; break;
+      case keys.down: presseddown = false; break;
+    }
   }
 
   ecs.on('load world camera', (id, c) => worldcamera = c)
   ecs.on('load camera', (id, p) => camera = p)
   ecs.on('pointer captured', () => {
-    islocked = true
     document.addEventListener('mousemove', onmove)
     document.addEventListener('keydown', onkeydown)
     document.addEventListener('keyup', onkeyup)
   })
   ecs.on('pointer released', () => {
-    islocked = false
     document.removeEventListener('mousemove', onmove)
     document.removeEventListener('keydown', onkeydown)
     document.removeEventListener('keyup', onkeyup)
-  })
-  ecs.on('init', () => {
-    root.addEventListener('click', (e) => {
-      if (!islocked) root.requestPointerLock()
-    })
-    document.addEventListener('pointerlockchange', () => {
-      if (document.pointerLockElement === root)
-        ecs.emit('pointer captured')
-      else ecs.emit('pointer released')
-    })
   })
 
   const impulse = new three.Vector3()
@@ -71,9 +75,9 @@ inject('pod', () => {
     camera.head.rotation.x = Math.max(
       -Math.PI / 2, camera.head.rotation.x)
     impulse.set(
-      Number(pressed[keys.right]) - Number(pressed[keys.left]),
-      Number(pressed[keys.up]) - Number(pressed[keys.down]),
-      Number(pressed[keys.backward]) - Number(pressed[keys.forward]))
+      Number(pressedright) - Number(pressedleft),
+      Number(pressedup) - Number(presseddown),
+      Number(pressedbackward) - Number(pressedforward))
     impulse.multiplyScalar(0.01 * dt)
     impulse.applyQuaternion(camera.head.quaternion)
     impulse.applyQuaternion(camera.body.quaternion)

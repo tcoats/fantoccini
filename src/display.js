@@ -102,12 +102,6 @@ inject('pod', () => {
     entities[id] = box
   })
 
-  const raycast = (coords, camera) => {
-    const raycaster = new three.Raycaster()
-    raycaster.setFromCamera(crosshair, camera)
-    return raycaster.intersectObjects(world.children)
-  }
-
   ecs.on('delete', (id) => {
     if (entities[id]) delete entities[id]
   })
@@ -170,8 +164,14 @@ inject('pod', () => {
     ecs.emit('selection added', selection.id, selection)
   })
 
+  const raycaster = new three.Raycaster()
+  const raycast = (coords, camera) => {
+    raycaster.setFromCamera(crosshair, camera)
+    return raycaster.intersectObjects(world.children)
+  }
   ecs.on('physics to display delta', (id, dt) => {
-    setSpotlight(raycast(crosshair, worldcamera))
+    raycaster.setFromCamera(crosshair, worldcamera)
+    setSpotlight(raycaster.intersectObjects(world.children))
     if (spotlight) {
       spotlight.mesh.position.copy(spotlight.entity.mesh.position)
       spotlight.mesh.quaternion.copy(spotlight.entity.mesh.quaternion)

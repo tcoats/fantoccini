@@ -47170,13 +47170,6 @@ inject('pod', function () {
     box.mesh.receiveShadow = true;
     entities[id] = box;
   });
-
-  var raycast = function raycast(coords, camera) {
-    var raycaster = new three.Raycaster();
-    raycaster.setFromCamera(crosshair, camera);
-    return raycaster.intersectObjects(world.children);
-  };
-
   ecs.on('delete', function (id) {
     if (entities[id]) delete entities[id];
   });
@@ -47271,8 +47264,16 @@ inject('pod', function () {
     world.add(selection.mesh);
     ecs.emit('selection added', selection.id, selection);
   });
+  var raycaster = new three.Raycaster();
+
+  var raycast = function raycast(coords, camera) {
+    raycaster.setFromCamera(crosshair, camera);
+    return raycaster.intersectObjects(world.children);
+  };
+
   ecs.on('physics to display delta', function (id, dt) {
-    setSpotlight(raycast(crosshair, worldcamera));
+    raycaster.setFromCamera(crosshair, worldcamera);
+    setSpotlight(raycaster.intersectObjects(world.children));
 
     if (spotlight) {
       spotlight.mesh.position.copy(spotlight.entity.mesh.position);
@@ -47314,10 +47315,8 @@ inject('pod', function () {
   var root = document.getElementById('root');
   var camera = null;
   var worldcamera = null;
-  var islocked = false;
   var mouseDeltaX = 0;
   var mouseDeltaY = 0;
-  var pressed = {};
   var keys = {
     forward: 87,
     backward: 83,
@@ -47326,13 +47325,12 @@ inject('pod', function () {
     up: 32,
     down: 16
   };
-
-  var _arr = Object.values(keys);
-
-  for (var _i = 0; _i < _arr.length; _i++) {
-    var key = _arr[_i];
-    pressed[key] = false;
-  }
+  var pressedforward = false;
+  var pressedbackward = false;
+  var pressedleft = false;
+  var pressedright = false;
+  var pressedup = false;
+  var presseddown = false;
 
   var onmove = function onmove(e) {
     mouseDeltaX += e.movementX;
@@ -47340,12 +47338,59 @@ inject('pod', function () {
   };
 
   var onkeydown = function onkeydown(e) {
-    if (pressed[e.keyCode]) return;
-    pressed[e.keyCode] = true;
+    switch (e.keyCode) {
+      case keys.forward:
+        pressedforward = true;
+        break;
+
+      case keys.backward:
+        pressedbackward = true;
+        break;
+
+      case keys.left:
+        pressedleft = true;
+        break;
+
+      case keys.right:
+        pressedright = true;
+        break;
+
+      case keys.up:
+        pressedup = true;
+        break;
+
+      case keys.down:
+        presseddown = true;
+        break;
+    }
   };
 
   var onkeyup = function onkeyup(e) {
-    pressed[e.keyCode] = false;
+    switch (e.keyCode) {
+      case keys.forward:
+        pressedforward = false;
+        break;
+
+      case keys.backward:
+        pressedbackward = false;
+        break;
+
+      case keys.left:
+        pressedleft = false;
+        break;
+
+      case keys.right:
+        pressedright = false;
+        break;
+
+      case keys.up:
+        pressedup = false;
+        break;
+
+      case keys.down:
+        presseddown = false;
+        break;
+    }
   };
 
   ecs.on('load world camera', function (id, c) {
@@ -47355,24 +47400,14 @@ inject('pod', function () {
     return camera = p;
   });
   ecs.on('pointer captured', function () {
-    islocked = true;
     document.addEventListener('mousemove', onmove);
     document.addEventListener('keydown', onkeydown);
     document.addEventListener('keyup', onkeyup);
   });
   ecs.on('pointer released', function () {
-    islocked = false;
     document.removeEventListener('mousemove', onmove);
     document.removeEventListener('keydown', onkeydown);
     document.removeEventListener('keyup', onkeyup);
-  });
-  ecs.on('init', function () {
-    root.addEventListener('click', function (e) {
-      if (!islocked) root.requestPointerLock();
-    });
-    document.addEventListener('pointerlockchange', function () {
-      if (document.pointerLockElement === root) ecs.emit('pointer captured');else ecs.emit('pointer released');
-    });
   });
   var impulse = new three.Vector3();
   ecs.on('event delta', function (id, dt) {
@@ -47382,7 +47417,7 @@ inject('pod', function () {
     camera.head.rotation.x -= mouseDeltaY * mouseSensitivity;
     camera.head.rotation.x = Math.min(Math.PI / 2, camera.head.rotation.x);
     camera.head.rotation.x = Math.max(-Math.PI / 2, camera.head.rotation.x);
-    impulse.set(Number(pressed[keys.right]) - Number(pressed[keys.left]), Number(pressed[keys.up]) - Number(pressed[keys.down]), Number(pressed[keys.backward]) - Number(pressed[keys.forward]));
+    impulse.set(Number(pressedright) - Number(pressedleft), Number(pressedup) - Number(presseddown), Number(pressedbackward) - Number(pressedforward));
     impulse.multiplyScalar(0.01 * dt);
     impulse.applyQuaternion(camera.head.quaternion);
     impulse.applyQuaternion(camera.body.quaternion);
@@ -47672,6 +47707,27 @@ inject('pod', function () {
   ecs.on('pointer released', function () {
     document.removeEventListener('keydown', onkeydown);
     document.removeEventListener('keyup', onkeyup);
+  });
+});
+},{"injectinto":"node_modules/injectinto/inject.js"}],"src/pointercapture.js":[function(require,module,exports) {
+var inject = require('injectinto');
+
+inject('pod', function () {
+  var ecs = inject.one('ecs');
+  var islocked = false;
+  ecs.on('pointer captured', function () {
+    islocked = true;
+  });
+  ecs.on('pointer released', function () {
+    islocked = false;
+  });
+  ecs.on('init', function () {
+    root.addEventListener('click', function (e) {
+      if (!islocked) root.requestPointerLock();
+    });
+    document.addEventListener('pointerlockchange', function () {
+      if (document.pointerLockElement === root) ecs.emit('pointer captured');else ecs.emit('pointer released');
+    });
   });
 });
 },{"injectinto":"node_modules/injectinto/inject.js"}],"../../.config/yarn/global/node_modules/parcel-bundler/src/builtins/bundle-url.js":[function(require,module,exports) {
@@ -48883,6 +48939,8 @@ if (!inject.oneornone('ecs')) {
 
   require('./hotkeys');
 
+  require('./pointercapture');
+
   require('./ui');
 
   var _iteratorNormalCompletion = true;
@@ -48982,7 +49040,7 @@ if (!inject.oneornone('ecs')) {
     });
   });
 } else location.reload(true);
-},{"injectinto":"node_modules/injectinto/inject.js","cannon":"node_modules/cannon/build/cannon.js","three":"node_modules/three/build/three.module.js","./ecs":"src/ecs.js","./physics":"src/physics.js","./display":"src/display.js","./controls":"src/controls.js","./constraints":"src/constraints.js","./drag":"src/drag.js","./hotkeys":"src/hotkeys.js","./ui":"src/ui.js"}],"../../.config/yarn/global/node_modules/parcel-bundler/src/builtins/hmr-runtime.js":[function(require,module,exports) {
+},{"injectinto":"node_modules/injectinto/inject.js","cannon":"node_modules/cannon/build/cannon.js","three":"node_modules/three/build/three.module.js","./ecs":"src/ecs.js","./physics":"src/physics.js","./display":"src/display.js","./controls":"src/controls.js","./constraints":"src/constraints.js","./drag":"src/drag.js","./hotkeys":"src/hotkeys.js","./pointercapture":"src/pointercapture.js","./ui":"src/ui.js"}],"../../.config/yarn/global/node_modules/parcel-bundler/src/builtins/hmr-runtime.js":[function(require,module,exports) {
 var global = arguments[3];
 var OVERLAY_ID = '__parcel__error__overlay__';
 var OldModule = module.bundle.Module;
@@ -49009,7 +49067,7 @@ var parent = module.bundle.parent;
 if ((!parent || !parent.isParcelRequire) && typeof WebSocket !== 'undefined') {
   var hostname = "" || location.hostname;
   var protocol = location.protocol === 'https:' ? 'wss' : 'ws';
-  var ws = new WebSocket(protocol + '://' + hostname + ':' + "55917" + '/');
+  var ws = new WebSocket(protocol + '://' + hostname + ':' + "56236" + '/');
 
   ws.onmessage = function (event) {
     var data = JSON.parse(event.data);

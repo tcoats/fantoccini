@@ -11,6 +11,7 @@ if (!inject.oneornone('ecs')) {
   require('./constraints')
   require('./drag')
   require('./hotkeys')
+  require('./pointercapture')
   require('./ui')
 
   for (let pod of inject.many('pod')) pod()
