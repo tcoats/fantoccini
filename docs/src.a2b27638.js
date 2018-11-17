@@ -47315,8 +47315,12 @@ inject('pod', function () {
   var camera = null;
   var worldcamera = null;
   var islocked = false;
-  var movementX = 0;
-  var movementY = 0;
+  var mouseDeltaX = 0;
+  var mouseDeltaY = 0;
+  var mouseIsDown = false;
+  var mouseDownAt = null;
+  var dragStartPosition = new three.Vector3();
+  var dragStartQuaternion = new three.Quaternion();
   var pressed = {};
   var keys = {
     forward: 87,
@@ -47339,34 +47343,148 @@ inject('pod', function () {
     pressed[key] = false;
   }
 
-  var inmenu = true;
-  var menuopenedat = null;
-  ecs.on('menu open', function () {
-    menuopenedat = Date.now();
-    inmenu = true;
-  });
-  ecs.on('menu close', function () {
-    menuopenedat = null;
-    inmenu = false;
-  });
+  var menuOpen = true;
+  var menuOpenedAt = null;
   var constraints = {
     x: false,
     y: false,
     z: false
   };
-  var constrainedat = null;
-  var prevconstraints = null;
-  ecs.on('constrain axis', function (id, c) {
-    return constraints = c;
-  });
+  var constrainedAt = null;
+  var constraintsPrev = null;
   var physicsMode = 0;
-  ecs.on('physics mode', function (id, p) {
-    return physicsMode = p;
-  });
+  var dragPosition = new three.Vector3();
+  var dragQuaternion = new three.Quaternion();
+  var dragDeltaPosition = new three.Vector3();
+  var dragDeltaQuaternion = new three.Quaternion();
+
+  var dragCalc = function dragCalc() {
+    worldcamera.getWorldPosition(dragPosition);
+    worldcamera.getWorldQuaternion(dragQuaternion);
+    dragDeltaPosition.copy(dragPosition).sub(dragStartPosition);
+    dragDeltaQuaternion.copy(dragStartQuaternion).inverse().multiply(dragQuaternion);
+    return {
+      startPosition: dragStartPosition,
+      startQuaternion: dragStartQuaternion,
+      deltaPosition: dragDeltaPosition,
+      deltaQuaternion: dragDeltaQuaternion,
+      position: dragPosition,
+      quaternion: dragQuaternion
+    };
+  };
+
+  var onmousedown = function onmousedown(e) {
+    if (!islocked) return;
+    mouseIsDown = true;
+    mouseDownAt = Date.now();
+    worldcamera.getWorldPosition(dragStartPosition);
+    worldcamera.getWorldQuaternion(dragStartQuaternion);
+  };
+
+  var onmouseup = function onmouseup(e) {
+    if (!islocked) return;
+    mouseIsDown = false;
+
+    if (mouseDownAt && Date.now() - mouseDownAt < 200) {
+      mouseDownAt = null;
+      ecs.emit('pointer click');
+      return;
+    }
+
+    var drag = dragCalc();
+    ecs.emit('dragging finished', null, drag);
+  };
 
   var onmove = function onmove(e) {
-    movementX += e.movementX;
-    movementY += e.movementY;
+    mouseDeltaX += e.movementX;
+    mouseDeltaY += e.movementY;
+    if (!mouseIsDown) return;
+    var drag = dragCalc();
+    if (mouseDownAt && (Date.now() - mouseDownAt > 200 || drag.deltaPosition.lengthSq() > 0.1 || drag.deltaQuaternion.lengthSq() > 0.1)) mouseDownAt = null;
+  };
+
+  var onphysicsdown = function onphysicsdown() {
+    physicsMode += 1;
+    physicsMode %= 3;
+    ecs.emit('physics mode', null, physicsMode);
+  };
+
+  var onmenudown = function onmenudown() {
+    if (menuOpen) ecs.emit('menu close');else ecs.emit('menu open');
+  };
+
+  var onmenuup = function onmenuup() {
+    if (menuOpen && Date.now() - menuOpenedAt > 200) ecs.emit('menu close');
+  };
+
+  var onaxisdown = function onaxisdown() {
+    if (!constrainedAt) {
+      constrainedAt = Date.now();
+      constraintsPrev = constraints;
+    }
+
+    ecs.emit('constrain axis', null, {
+      x: !pressed[keys.xaxis],
+      y: !pressed[keys.yaxis],
+      z: !pressed[keys.zaxis]
+    });
+  };
+
+  var onxaxisup = function onxaxisup() {
+    if (!constrainedAt || Date.now() - constrainedAt < 200) {
+      ecs.emit('constrain axis', null, {
+        x: !constraintsPrev.x,
+        y: constraintsPrev.y,
+        z: constraintsPrev.z
+      });
+      constraintsPrev = constraints;
+      constrainedAt = null;
+    } else if (!pressed[keys.yaxis] && !pressed[keys.zaxis]) {
+      ecs.emit('constrain axis', null, constraintsPrev);
+      constrainedAt = null;
+    } else ecs.emit('constrain axis', null, {
+      x: true,
+      y: constraints.y,
+      z: constraints.z
+    });
+  };
+
+  var onyaxisup = function onyaxisup() {
+    if (!constrainedAt || Date.now() - constrainedAt < 200) {
+      ecs.emit('constrain axis', null, {
+        x: constraintsPrev.x,
+        y: !constraintsPrev.y,
+        z: constraintsPrev.z
+      });
+      constraintsPrev = constraints;
+      constrainedAt = null;
+    } else if (!pressed[keys.xaxis] && !pressed[keys.zaxis]) {
+      ecs.emit('constrain axis', null, constraintsPrev);
+      constrainedAt = null;
+    } else ecs.emit('constrain axis', null, {
+      x: constraints.x,
+      y: true,
+      z: constraints.z
+    });
+  };
+
+  var onzaxisup = function onzaxisup() {
+    if (!constrainedAt || Date.now() - constrainedAt < 200) {
+      ecs.emit('constrain axis', null, {
+        x: constraintsPrev.x,
+        y: constraintsPrev.y,
+        z: !constraintsPrev.z
+      });
+      constraintsPrev = constraints;
+      constrainedAt = null;
+    } else if (!pressed[keys.xaxis] && !pressed[keys.yaxis]) {
+      ecs.emit('constrain axis', null, constraintsPrev);
+      constrainedAt = null;
+    } else ecs.emit('constrain axis', null, {
+      x: constraints.x,
+      y: constraints.y,
+      z: true
+    });
   };
 
   var onkeydown = function onkeydown(e) {
@@ -47375,28 +47493,17 @@ inject('pod', function () {
 
     switch (e.keyCode) {
       case keys.menu:
-        if (inmenu) ecs.emit('menu close');else ecs.emit('menu open');
+        onmenudown();
         break;
 
       case keys.physics:
-        physicsMode += 1;
-        physicsMode %= 3;
-        ecs.emit('physics mode', null, physicsMode);
+        onphysicsdown();
         break;
 
       case keys.xaxis:
       case keys.yaxis:
       case keys.zaxis:
-        if (!constrainedat) {
-          constrainedat = Date.now();
-          prevconstraints = constraints;
-        }
-
-        ecs.emit('constrain axis', null, {
-          x: !pressed[keys.xaxis],
-          y: !pressed[keys.yaxis],
-          z: !pressed[keys.zaxis]
-        });
+        onaxisdown();
         break;
     }
   };
@@ -47404,139 +47511,38 @@ inject('pod', function () {
   var onkeyup = function onkeyup(e) {
     switch (e.keyCode) {
       case keys.menu:
-        if (inmenu && Date.now() - menuopenedat > 200) ecs.emit('menu close');
+        onmenuup();
         break;
 
       case keys.xaxis:
-        if (!constrainedat || Date.now() - constrainedat < 200) {
-          ecs.emit('constrain axis', null, {
-            x: !prevconstraints.x,
-            y: prevconstraints.y,
-            z: prevconstraints.z
-          });
-          prevconstraints = constraints;
-          constrainedat = null;
-        } else if (!pressed[keys.yaxis] && !pressed[keys.zaxis]) {
-          ecs.emit('constrain axis', null, prevconstraints);
-          constrainedat = null;
-        } else ecs.emit('constrain axis', null, {
-          x: true,
-          y: constraints.y,
-          z: constraints.z
-        });
-
+        onxaxisup();
         break;
 
       case keys.yaxis:
-        if (!constrainedat || Date.now() - constrainedat < 200) {
-          ecs.emit('constrain axis', null, {
-            x: prevconstraints.x,
-            y: !prevconstraints.y,
-            z: prevconstraints.z
-          });
-          prevconstraints = constraints;
-          constrainedat = null;
-        } else if (!pressed[keys.xaxis] && !pressed[keys.zaxis]) {
-          ecs.emit('constrain axis', null, prevconstraints);
-          constrainedat = null;
-        } else ecs.emit('constrain axis', null, {
-          x: constraints.x,
-          y: true,
-          z: constraints.z
-        });
-
+        onyaxisup();
         break;
 
       case keys.zaxis:
-        if (!constrainedat || Date.now() - constrainedat < 200) {
-          ecs.emit('constrain axis', null, {
-            x: prevconstraints.x,
-            y: prevconstraints.y,
-            z: !prevconstraints.z
-          });
-          prevconstraints = constraints;
-          constrainedat = null;
-        } else if (!pressed[keys.xaxis] && !pressed[keys.yaxis]) {
-          ecs.emit('constrain axis', null, prevconstraints);
-          constrainedat = null;
-        } else ecs.emit('constrain axis', null, {
-          x: constraints.x,
-          y: constraints.y,
-          z: true
-        });
-
+        onzaxisup();
         break;
     }
 
     pressed[e.keyCode] = false;
   };
 
-  var mouseIsDown = false;
-  var mouseDownAt = null;
-  var dragStartPosition = new three.Vector3();
-  var dragStartQuaternion = new three.Quaternion();
-
-  var calcDrag = function calcDrag() {
-    var position = new three.Vector3();
-    var quaternion = new three.Quaternion();
-    worldcamera.getWorldPosition(position);
-    worldcamera.getWorldQuaternion(quaternion);
-    var deltaPosition = position.clone().sub(dragStartPosition);
-    var deltaQuaternion = dragStartQuaternion.clone().inverse().multiply(quaternion);
-    return {
-      startPosition: dragStartPosition,
-      startQuaternion: dragStartQuaternion,
-      deltaPosition: deltaPosition,
-      deltaQuaternion: deltaQuaternion,
-      position: position,
-      quaternion: quaternion
-    };
-  };
-
-  ecs.on('init', function () {
-    root.addEventListener('click', function (e) {
-      if (!islocked) return root.requestPointerLock();
-    });
-    root.addEventListener('mousedown', function (e) {
-      if (!islocked) return;
-      mouseIsDown = true;
-      mouseDownAt = Date.now();
-      worldcamera.getWorldPosition(dragStartPosition);
-      worldcamera.getWorldQuaternion(dragStartQuaternion);
-    });
-    root.addEventListener('mousemove', function (e) {
-      if (!islocked || !mouseIsDown) return;
-      var drag = calcDrag();
-      if (mouseDownAt && (Date.now() - mouseDownAt > 200 || drag.deltaPosition.lengthSq() > 0.1 || drag.deltaQuaternion.lengthSq() > 0.1)) mouseDownAt = null;
-    });
-    root.addEventListener('mouseup', function (e) {
-      if (!islocked) return;
-      mouseIsDown = false;
-
-      if (mouseDownAt && Date.now() - mouseDownAt < 200) {
-        mouseDownAt = null;
-        ecs.emit('pointer click');
-        return;
-      }
-
-      var drag = calcDrag();
-      ecs.emit('dragging finished', null, drag);
-    });
-    document.addEventListener('pointerlockchange', function () {
-      if (document.pointerLockElement === root) ecs.emit('pointer captured');else ecs.emit('pointer released');
-    });
+  ecs.on('menu open', function () {
+    menuOpenedAt = Date.now();
+    menuOpen = true;
   });
-  ecs.on('pointer captured', function () {
-    islocked = true;
-    document.addEventListener('mousemove', onmove);
-    document.addEventListener('keydown', onkeydown);
-    document.addEventListener('keyup', onkeyup);
+  ecs.on('menu close', function () {
+    menuOpenedAt = null;
+    menuOpen = false;
   });
-  ecs.on('pointer released', function () {
-    islocked = false;
-    document.removeEventListener('mousemove', onmove);
-    document.removeEventListener('keydown', onkeydown);
-    document.removeEventListener('keyup', onkeyup);
+  ecs.on('constrain axis', function (id, c) {
+    return constraints = c;
+  });
+  ecs.on('physics mode', function (id, p) {
+    return physicsMode = p;
   });
   ecs.on('load world camera', function (id, c) {
     return worldcamera = c;
@@ -47544,12 +47550,36 @@ inject('pod', function () {
   ecs.on('load camera', function (id, p) {
     return camera = p;
   });
+  ecs.on('pointer captured', function () {
+    islocked = true;
+    document.addEventListener('mousedown', onmousedown);
+    document.addEventListener('mouseup', onmouseup);
+    document.addEventListener('mousemove', onmove);
+    document.addEventListener('keydown', onkeydown);
+    document.addEventListener('keyup', onkeyup);
+  });
+  ecs.on('pointer released', function () {
+    islocked = false;
+    document.removeEventListener('mousedown', onmousedown);
+    document.removeEventListener('mouseup', onmouseup);
+    document.removeEventListener('mousemove', onmove);
+    document.removeEventListener('keydown', onkeydown);
+    document.removeEventListener('keyup', onkeyup);
+  });
+  ecs.on('init', function () {
+    root.addEventListener('click', function (e) {
+      if (!islocked) root.requestPointerLock();
+    });
+    document.addEventListener('pointerlockchange', function () {
+      if (document.pointerLockElement === root) ecs.emit('pointer captured');else ecs.emit('pointer released');
+    });
+  });
   var impulse = new three.Vector3();
   ecs.on('event delta', function (id, dt) {
     if (!camera) return;
     var mouseSensitivity = 0.002;
-    camera.body.rotation.y -= movementX * mouseSensitivity;
-    camera.head.rotation.x -= movementY * mouseSensitivity;
+    camera.body.rotation.y -= mouseDeltaX * mouseSensitivity;
+    camera.head.rotation.x -= mouseDeltaY * mouseSensitivity;
     camera.head.rotation.x = Math.min(Math.PI / 2, camera.head.rotation.x);
     camera.head.rotation.x = Math.max(-Math.PI / 2, camera.head.rotation.x);
     impulse.set(Number(pressed[keys.right]) - Number(pressed[keys.left]), Number(pressed[keys.up]) - Number(pressed[keys.down]), Number(pressed[keys.backward]) - Number(pressed[keys.forward]));
@@ -47557,12 +47587,12 @@ inject('pod', function () {
     impulse.applyQuaternion(camera.head.quaternion);
     impulse.applyQuaternion(camera.body.quaternion);
     camera.body.position.add(impulse);
-    movementX = 0;
-    movementY = 0;
+    mouseDeltaX = 0;
+    mouseDeltaY = 0;
 
     if (mouseIsDown) {
       if (mouseDownAt && Date.now() - mouseDownAt > 200) mouseDownAt = null;
-      if (!mouseDownAt) ecs.emit('dragging', null, calcDrag());
+      if (!mouseDownAt) ecs.emit('dragging', null, dragCalc());
     }
   });
 });
@@ -48895,7 +48925,7 @@ var parent = module.bundle.parent;
 if ((!parent || !parent.isParcelRequire) && typeof WebSocket !== 'undefined') {
   var hostname = "" || location.hostname;
   var protocol = location.protocol === 'https:' ? 'wss' : 'ws';
-  var ws = new WebSocket(protocol + '://' + hostname + ':' + "51879" + '/');
+  var ws = new WebSocket(protocol + '://' + hostname + ':' + "54759" + '/');
 
   ws.onmessage = function (event) {
     var data = JSON.parse(event.data);
