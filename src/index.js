@@ -14,6 +14,7 @@ if (!inject.oneornone('ecs')) {
   require('./pointercapture')
   require('./input')
   require('./tools')
+  require('./scripts')
   require('./ui')
 
   for (let pod of inject.many('pod')) pod()
@@ -68,23 +69,4 @@ if (!inject.oneornone('ecs')) {
     window.requestAnimationFrame(animate)
   })
 
-  ecs.on('input updated', (id, input) => {
-    console.log(input)
-  })
-  ecs.on('input submitted', (id, input) => {
-    console.log(input)
-  })
-
-  // let worldcamera  = null
-  // ecs.on('load world camera', (id, c) => worldcamera = c)
-  // ecs.on('pointer click', (id, e) => {
-  //   const offset = new three.Vector3(0, 0, -3)
-  //   const lookDirection = new three.Quaternion()
-  //   worldcamera.getWorldQuaternion(lookDirection)
-  //   offset.applyQuaternion(lookDirection)
-  //   const position = new three.Vector3()
-  //   worldcamera.getWorldPosition(position)
-  //   offset.add(position)
-  //   ecs.emit('load box', ecs.id(), { position: offset })
-  // })
 } else location.reload(true)

@@ -47673,7 +47673,7 @@ inject('pod', function () {
   var keys = {
     menu: 192,
     physics: 80,
-    input: 73
+    input: 69
   };
   var menuDown = false;
   var menuOpen = false;
@@ -47711,6 +47711,7 @@ inject('pod', function () {
         break;
 
       case keys.input:
+        ecs.emit('menu execute');
         ecs.emit('input enabled');
         break;
     }
@@ -47788,11 +47789,10 @@ inject('pod', function () {
     if (e.key == 'Enter') {
       ecs.emit('input disabled');
       ecs.emit('input submitted', null, input);
+      return;
     }
 
-    if (e.key.length == 1) input += e.key;
-    if (e.key == 'Backspace') input = input.slice(0, -1);
-    ecs.emit('input updated', null, input);
+    if (e.key.length == 1) ecs.emit('input updated', null, input + e.key);else if (e.key == 'Backspace') ecs.emit('input updated', null, input.slice(0, -1));
   };
 
   var onkeyup = function onkeyup(e) {
@@ -47801,6 +47801,9 @@ inject('pod', function () {
     }
   };
 
+  ecs.on('input updated', function (id, s) {
+    return input = s;
+  });
   ecs.on('input enabled', function () {
     ecs.emit('drag disabled');
     ecs.emit('controls disabled');
@@ -47946,7 +47949,36 @@ inject('pod', function () {
     document.removeEventListener('keyup', onkeyup);
   });
 });
-},{"injectinto":"node_modules/injectinto/inject.js"}],"../../.config/yarn/global/node_modules/parcel-bundler/src/builtins/bundle-url.js":[function(require,module,exports) {
+},{"injectinto":"node_modules/injectinto/inject.js"}],"src/scripts.js":[function(require,module,exports) {
+var inject = require('injectinto');
+
+inject('pod', function () {
+  var ecs = inject.one('ecs');
+
+  var three = require('three');
+
+  var scripts = ['create unit box', 'delete selected objects', 'duplicate selected objects'];
+  ecs.on('load', function () {
+    ecs.emit('scripts available', null, scripts);
+  });
+  var worldcamera = null;
+  ecs.on('load world camera', function (id, c) {
+    return worldcamera = c;
+  });
+  ecs.on('create unit box', function () {
+    var offset = new three.Vector3(0, 0, -3);
+    var lookDirection = new three.Quaternion();
+    worldcamera.getWorldQuaternion(lookDirection);
+    offset.applyQuaternion(lookDirection);
+    var position = new three.Vector3();
+    worldcamera.getWorldPosition(position);
+    offset.add(position);
+    ecs.emit('load box', ecs.id(), {
+      position: offset
+    });
+  });
+});
+},{"injectinto":"node_modules/injectinto/inject.js","three":"node_modules/three/build/three.module.js"}],"../../.config/yarn/global/node_modules/parcel-bundler/src/builtins/bundle-url.js":[function(require,module,exports) {
 var bundleURL = null;
 
 function getBundleURLCached() {
@@ -49101,12 +49133,49 @@ inject('pod', function () {
   ecs.on('tool select', function (id, s) {
     return menuState = s;
   });
+  var scripts = null;
+  ecs.on('scripts available', function (id, s) {
+    return scripts = s;
+  });
+  var isexecute = false;
+  var currentInput = '';
+  var scriptOptions = [];
+  ecs.on('menu execute', function () {
+    isexecute = true;
+    currentInput = '';
+    scriptOptions = [];
+  });
+  ecs.on('input disabled', function () {
+    return isexecute = false;
+  });
+  ecs.on('input updated', function (id, input) {
+    if (!isexecute) return;
+    currentInput = input;
+
+    if (currentInput == '') {
+      scriptOptions = [];
+      return;
+    }
+
+    scriptOptions = scripts.filter(function (s) {
+      return s.indexOf(currentInput) == 0;
+    });
+  });
+  ecs.on('input submitted', function (id, input) {
+    scriptOptions = scripts.filter(function (s) {
+      return s.indexOf(currentInput) == 0;
+    });
+    if (scriptOptions.length > 0) ecs.emit(scriptOptions[0]);
+  });
 
   var h = require('snabbdom/h').default;
 
   var TEMP = new three.Vector3();
 
   var ui = function ui(state, params, ecs) {
+    if (isexecute) return h('div#root', h('div.centered', h('div.autocomplete', [h('div.option', currentInput)].concat(_toConsumableArray(scriptOptions.map(function (s, i) {
+      return i == 0 ? h('div.box', [s, h('span.shortcut', 'ENTER')]) : h('div.option', s);
+    }))))));
     var elements = [];
 
     if (menuopen) {
@@ -49121,7 +49190,7 @@ inject('pod', function () {
           }
         }, [tool, toolIndex == 0 ? h('span.shortcut', (menuIndex + 1).toString()) : null]);
       }));
-    })).concat([menuState && menuState.previous ? h('div.tools', h('div.box.tool', [menuState.previous, h('span.shortcut', 'Q')])) : null]))] : []), [!menuopen && menuState != null && menuState.menuIndex != null && menuState.toolIndex != null ? h('div.menu', menu.map(function (tools, menuIndex) {
+    })).concat([menuState && menuState.previous ? h('div.tools', h('div.box.tool', [menuState.previous, h('span.shortcut', 'Q')])) : null, h('div.tools', h('div.box.tool', ['execute', h('span.shortcut', 'E')]))]))] : []), [!menuopen && menuState != null && menuState.menuIndex != null && menuState.toolIndex != null ? h('div.menu', menu.map(function (tools, menuIndex) {
       return h('div.tools', tools.map(function (tool, toolIndex) {
         return h('div.box.tool', {
           class: {
@@ -49184,6 +49253,8 @@ if (!inject.oneornone('ecs')) {
   require('./input');
 
   require('./tools');
+
+  require('./scripts');
 
   require('./ui');
 
@@ -49267,25 +49338,8 @@ if (!inject.oneornone('ecs')) {
 
     window.requestAnimationFrame(animate);
   });
-  ecs.on('input updated', function (id, input) {
-    console.log(input);
-  });
-  ecs.on('input submitted', function (id, input) {
-    console.log(input);
-  }); // let worldcamera  = null
-  // ecs.on('load world camera', (id, c) => worldcamera = c)
-  // ecs.on('pointer click', (id, e) => {
-  //   const offset = new three.Vector3(0, 0, -3)
-  //   const lookDirection = new three.Quaternion()
-  //   worldcamera.getWorldQuaternion(lookDirection)
-  //   offset.applyQuaternion(lookDirection)
-  //   const position = new three.Vector3()
-  //   worldcamera.getWorldPosition(position)
-  //   offset.add(position)
-  //   ecs.emit('load box', ecs.id(), { position: offset })
-  // })
 } else location.reload(true);
-},{"injectinto":"node_modules/injectinto/inject.js","cannon":"node_modules/cannon/build/cannon.js","three":"node_modules/three/build/three.module.js","./ecs":"src/ecs.js","./physics":"src/physics.js","./display":"src/display.js","./controls":"src/controls.js","./constraints":"src/constraints.js","./drag":"src/drag.js","./hotkeys":"src/hotkeys.js","./pointercapture":"src/pointercapture.js","./input":"src/input.js","./tools":"src/tools.js","./ui":"src/ui.js"}],"../../.config/yarn/global/node_modules/parcel-bundler/src/builtins/hmr-runtime.js":[function(require,module,exports) {
+},{"injectinto":"node_modules/injectinto/inject.js","cannon":"node_modules/cannon/build/cannon.js","three":"node_modules/three/build/three.module.js","./ecs":"src/ecs.js","./physics":"src/physics.js","./display":"src/display.js","./controls":"src/controls.js","./constraints":"src/constraints.js","./drag":"src/drag.js","./hotkeys":"src/hotkeys.js","./pointercapture":"src/pointercapture.js","./input":"src/input.js","./tools":"src/tools.js","./scripts":"src/scripts.js","./ui":"src/ui.js"}],"../../.config/yarn/global/node_modules/parcel-bundler/src/builtins/hmr-runtime.js":[function(require,module,exports) {
 var global = arguments[3];
 var OVERLAY_ID = '__parcel__error__overlay__';
 var OldModule = module.bundle.Module;
@@ -49312,7 +49366,7 @@ var parent = module.bundle.parent;
 if ((!parent || !parent.isParcelRequire) && typeof WebSocket !== 'undefined') {
   var hostname = "" || location.hostname;
   var protocol = location.protocol === 'https:' ? 'wss' : 'ws';
-  var ws = new WebSocket(protocol + '://' + hostname + ':' + "57236" + '/');
+  var ws = new WebSocket(protocol + '://' + hostname + ':' + "57428" + '/');
 
   ws.onmessage = function (event) {
     var data = JSON.parse(event.data);

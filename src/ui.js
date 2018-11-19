@@ -36,9 +36,39 @@ inject('pod', () => {
   ecs.on('tools menu', (id, m) => menu = m)
   ecs.on('tool select', (id, s) => menuState = s)
 
+  let scripts = null
+  ecs.on('scripts available', (id, s) => scripts = s)
+  let isexecute = false
+  let currentInput = ''
+  let scriptOptions = []
+  ecs.on('menu execute', () => {
+    isexecute = true
+    currentInput = ''
+    scriptOptions = []
+  })
+  ecs.on('input disabled', () => isexecute = false)
+  ecs.on('input updated', (id, input) => {
+    if (!isexecute) return
+    currentInput = input
+    if (currentInput == '') {
+      scriptOptions = []
+      return
+    }
+    scriptOptions = scripts.filter((s) => s.indexOf(currentInput) == 0)
+  })
+  ecs.on('input submitted', (id, input) => {
+    scriptOptions = scripts.filter((s) => s.indexOf(currentInput) == 0)
+    if (scriptOptions.length > 0) ecs.emit(scriptOptions[0])
+  })
+
   const h = require('snabbdom/h').default
   const TEMP = new three.Vector3()
   const ui = (state, params, ecs) => {
+    if (isexecute) return h('div#root', h('div.centered', h('div.autocomplete', [
+      h('div.option', currentInput),
+      ...scriptOptions.map((s, i) => i == 0 ? h('div.box', [s, h('span.shortcut', 'ENTER')]) : h('div.option', s))
+    ])))
+
     const elements = []
 
     if (menuopen) {
@@ -70,7 +100,10 @@ inject('pod', () => {
           ? h('div.tools', h('div.box.tool', [
             menuState.previous,
             h('span.shortcut', 'Q')]))
-          : null)
+          : null),
+          h('div.tools', h('div.box.tool', [
+            'execute',
+            h('span.shortcut', 'E')]))
         ])
       ] : []),
       (!menuopen && menuState != null && menuState.menuIndex != null && menuState.toolIndex != null

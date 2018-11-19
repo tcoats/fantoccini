@@ -11,16 +11,20 @@ inject('pod', () => {
     if (e.key == 'Enter') {
       ecs.emit('input disabled')
       ecs.emit('input submitted', null, input)
+      return
     }
-    if (e.key.length == 1) input += e.key
-    if (e.key == 'Backspace') input = input.slice(0, -1)
-    ecs.emit('input updated', null, input)
+    if (e.key.length == 1)
+      ecs.emit('input updated', null, input + e.key)
+    else if (e.key == 'Backspace')
+      ecs.emit('input updated', null, input.slice(0, -1))
   }
   const onkeyup = (e) => {
     if (e.keyCode == keys.cancel) {
       ecs.emit('input disabled')
     }
   }
+
+  ecs.on('input updated', (id, s) => input = s)
 
   ecs.on('input enabled', () => {
     ecs.emit('drag disabled')

@@ -375,6 +375,19 @@ body {
   margin: -31.395vw -50vw -31.395vw -50vw;
   overflow: hidden;
 }
+.centered {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100%;
+}
+.autocomplete .box {
+  position: relative;
+}
+.autocomplete .option {
+  padding: 0.6vw 1.2vw;
+  border: 1px solid transparent;
+}
 .crosshair {
   position: absolute;
   top: 50%;

@@ -4,7 +4,7 @@ inject('pod', () => {
   const keys = {
     menu: 192,
     physics: 80,
-    input: 73
+    input: 69
   }
   let menuDown = false
   let menuOpen = false
@@ -40,6 +40,7 @@ inject('pod', () => {
         physicsDown = false
         break
       case keys.input:
+        ecs.emit('menu execute')
         ecs.emit('input enabled')
         break
     }
