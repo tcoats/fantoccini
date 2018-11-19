@@ -57,14 +57,21 @@ inject('pod', () => {
           physicsModes[physicsMode],
           h('span.shortcut', 'P')
         ]),
-        h('div.menu', menu.map((tools, menuIndex) =>
-          h('div.tools', tools.map((tool, toolIndex) =>
-            h('div.box.tool', { class: { selected: (menuState && (menuState.current == tool || (menuIndex == menuState.menuIndex && toolIndex == menuState.toolIndex))) } }, [
-              tool,
-              toolIndex == 0
-              ? h('span.shortcut', (menuIndex + 1).toString())
-              : null
-            ])))))
+        h('div.menu', [
+          ...menu.map((tools, menuIndex) =>
+            h('div.tools', tools.map((tool, toolIndex) =>
+              h('div.box.tool', { class: { selected: (menuState && (menuState.current == tool || (menuIndex == menuState.menuIndex && toolIndex == menuState.toolIndex))) } }, [
+                tool,
+                toolIndex == 0
+                ? h('span.shortcut', (menuIndex + 1).toString())
+                : null
+              ])))),
+          (menuState && menuState.previous
+          ? h('div.tools', h('div.box.tool', [
+            menuState.previous,
+            h('span.shortcut', 'Q')]))
+          : null)
+        ])
       ] : []),
       (!menuopen && menuState != null && menuState.menuIndex != null && menuState.toolIndex != null
         ? h('div.menu', menu.map((tools, menuIndex) =>

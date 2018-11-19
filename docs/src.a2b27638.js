@@ -49113,7 +49113,7 @@ inject('pod', function () {
       if (spotlight) elements.push([spotlight.mesh.position, h('div.test', "[".concat(spotlight.mesh.position.x.toFixed(2), ", ").concat(spotlight.mesh.position.y.toFixed(2), ", ").concat(spotlight.mesh.position.z.toFixed(2), "]"))]);
     }
 
-    return h('div#root', [h('div.constraints', [constraints.x ? h('div', 'X -') : h('div', 'X'), constraints.y ? h('div', 'Y -') : h('div', 'Y'), constraints.z ? h('div', 'Z -') : h('div', 'Z')]), h('div.crosshair')].concat(_toConsumableArray(menuopen ? [h('div.box.physicsmode', [physicsModes[physicsMode], h('span.shortcut', 'P')]), h('div.menu', menu.map(function (tools, menuIndex) {
+    return h('div#root', [h('div.constraints', [constraints.x ? h('div', 'X -') : h('div', 'X'), constraints.y ? h('div', 'Y -') : h('div', 'Y'), constraints.z ? h('div', 'Z -') : h('div', 'Z')]), h('div.crosshair')].concat(_toConsumableArray(menuopen ? [h('div.box.physicsmode', [physicsModes[physicsMode], h('span.shortcut', 'P')]), h('div.menu', _toConsumableArray(menu.map(function (tools, menuIndex) {
       return h('div.tools', tools.map(function (tool, toolIndex) {
         return h('div.box.tool', {
           class: {
@@ -49121,7 +49121,7 @@ inject('pod', function () {
           }
         }, [tool, toolIndex == 0 ? h('span.shortcut', (menuIndex + 1).toString()) : null]);
       }));
-    }))] : []), [!menuopen && menuState != null && menuState.menuIndex != null && menuState.toolIndex != null ? h('div.menu', menu.map(function (tools, menuIndex) {
+    })).concat([menuState && menuState.previous ? h('div.tools', h('div.box.tool', [menuState.previous, h('span.shortcut', 'Q')])) : null]))] : []), [!menuopen && menuState != null && menuState.menuIndex != null && menuState.toolIndex != null ? h('div.menu', menu.map(function (tools, menuIndex) {
       return h('div.tools', tools.map(function (tool, toolIndex) {
         return h('div.box.tool', {
           class: {
@@ -49312,7 +49312,7 @@ var parent = module.bundle.parent;
 if ((!parent || !parent.isParcelRequire) && typeof WebSocket !== 'undefined') {
   var hostname = "" || location.hostname;
   var protocol = location.protocol === 'https:' ? 'wss' : 'ws';
-  var ws = new WebSocket(protocol + '://' + hostname + ':' + "56092" + '/');
+  var ws = new WebSocket(protocol + '://' + hostname + ':' + "57236" + '/');
 
   ws.onmessage = function (event) {
     var data = JSON.parse(event.data);
