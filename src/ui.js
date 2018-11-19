@@ -20,9 +20,9 @@ inject('pod', () => {
   ecs.on('spotlight clear', () => spotlight = null)
   ecs.on('spotlight set', (id, entity) => spotlight = entity)
 
-  let inmenu = true
-  ecs.on('menu open', () => inmenu = true)
-  ecs.on('menu close', () => inmenu = false)
+  let menuopen = false
+  ecs.on('menu open', () => menuopen = true)
+  ecs.on('menu close', () => menuopen = false)
 
   let constraints = { x: false, y: false, z: false }
   ecs.on('constrain axis', (id, c) => constraints = c)
@@ -31,12 +31,17 @@ inject('pod', () => {
   let physicsMode = 0
   ecs.on('physics mode', (id, p) => physicsMode = p)
 
+  let menu = null
+  let menuState = null
+  ecs.on('tools menu', (id, m) => menu = m)
+  ecs.on('tool select', (id, s) => menuState = s)
+
   const h = require('snabbdom/h').default
   const TEMP = new three.Vector3()
   const ui = (state, params, ecs) => {
     const elements = []
 
-    if (inmenu) {
+    if (menuopen) {
       if (spotlight) elements.push([spotlight.mesh.position, h('div.test', `[${spotlight.mesh.position.x.toFixed(2)}, ${spotlight.mesh.position.y.toFixed(2)}, ${spotlight.mesh.position.z.toFixed(2)}]`)])
     }
 
@@ -47,10 +52,31 @@ inject('pod', () => {
         constraints.z ? h('div', 'Z -') : h('div', 'Z')
       ]),
       h('div.crosshair'),
-      inmenu ? h('div.box.physicsmode', [
-        physicsModes[physicsMode],
-        h('span.shortcut', 'P')
-      ]) : null,
+      ...(menuopen ? [
+        h('div.box.physicsmode', [
+          physicsModes[physicsMode],
+          h('span.shortcut', 'P')
+        ]),
+        h('div.menu', menu.map((tools, menuIndex) =>
+          h('div.tools', tools.map((tool, toolIndex) =>
+            h('div.box.tool', { class: { selected: (menuState && (menuState.current == tool || (menuIndex == menuState.menuIndex && toolIndex == menuState.toolIndex))) } }, [
+              tool,
+              toolIndex == 0
+              ? h('span.shortcut', (menuIndex + 1).toString())
+              : null
+            ])))))
+      ] : []),
+      (!menuopen && menuState != null && menuState.menuIndex != null && menuState.toolIndex != null
+        ? h('div.menu', menu.map((tools, menuIndex) =>
+            h('div.tools', tools.map((tool, toolIndex) =>
+              h('div.box.tool', { class: { selected: menuIndex == menuState.menuIndex && toolIndex == menuState.toolIndex } }, [
+                menuIndex == menuState.menuIndex ? tool : '',
+                toolIndex == 0
+                ? h('span.shortcut', (menuIndex + 1).toString())
+                : null
+              ])))))
+        : null
+      ),
       ...elements.map(e => {
         TEMP.copy(e[0])
         TEMP.project(worldcamera)

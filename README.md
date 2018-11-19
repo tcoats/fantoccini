@@ -1,25 +1,27 @@
 # Fantoccini
 
-https://github.com/kchapelier/wavefunctioncollapse
-
-## Bugs
-- [x] New objects don't get molasses damping
-
 ## Editor
-- [x] Type input
-- [ ] New object from asset list
-- [ ] Duplicate selected objects
-- [ ] Delete selected objects
 - [ ] Tool toggle / selection
+- [ ] Design move tool plane generation
 - [ ] Move tool
 - [ ] Scale tool - is origin based on crosshair?
 - [ ] Rotate tool - is origin based on crosshair?
 - [ ] Physics grab tool
 - [ ] Group / ungroup?
-- [ ] Full text search against template, name, attributes
 - [ ] Character type asset template
 - [ ] Enter / exit 3rd person control against character
 - [ ] Test constraint system
+
+## Scripts
+- [ ] Hotkey
+- [ ] Auto complete
+- [ ] Delete selected
+- [ ] Duplicate selected
+- [ ] New from template
+
+## Perhaps
+- [ ] Numeric entry?
+- [ ] Detect angle of drag for click threshold
 
 ## Character
 - [ ] Ragdoll armature
@@ -39,7 +41,7 @@ https://github.com/kchapelier/wavefunctioncollapse
 - [ ] Set input against timeline to understand how things change
 - [ ] Environment weighting
 
-# Jucy
+## Jucy
 - 3D geometry for effects
 - Simple flat materials & lighting
 - [Outline](https://threejs.org/examples/webgl_postprocessing_outline.html)
@@ -55,5 +57,6 @@ https://github.com/kchapelier/wavefunctioncollapse
 - [Pixel](https://threejs.org/examples/webgl_postprocessing_pixel.html)
 - [Retro Vectors](https://threejs.org/examples/webgl_postprocessing_unreal_bloom.html)
 
-# Ideas
+## Ideas
+- [ ] https://github.com/kchapelier/wavefunctioncollapse
 - Sea creature / statistics engine

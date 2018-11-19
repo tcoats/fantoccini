@@ -20,7 +20,6 @@ inject('pod', () => {
   ecs.on('init', () => {
     worldcamera = new three.PerspectiveCamera(
       75, canvas.width / canvas.height, 0.1, 1000)
-    worldcamera.layers.enable(1)
     world = new three.Scene()
     groundMaterial = new three.MeshLambertMaterial({ color: 0xFD9148 })
     boxMaterial = new three.MeshLambertMaterial({ color: 0x6297D0 })
@@ -79,14 +78,14 @@ inject('pod', () => {
     entities[id] = camera
   })
 
-  let inmenu = true
+  let menuopen = false
   ecs.on('menu open', () => {
     worldcamera.layers.enable(1)
-    inmenu = true
+    menuopen = true
   })
   ecs.on('menu close', () => {
     worldcamera.layers.disable(1)
-    inmenu = false
+    menuopen = false
   })
 
   ecs.on('load box', (id, box) => {

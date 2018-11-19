@@ -382,9 +382,9 @@ body {
   bottom: 50%;
   left: 50%;
   margin: -1.5px;
-  border: 1px solid #fff;
+  border: 1px solid #dfe1e8;
   border-radius: 20px;
-  background-color: #fff;
+  background-color: #dfe1e8;
   box-shadow: 0px 1px 1px #000;
 }
 .physicsmode {
@@ -396,8 +396,15 @@ body {
   text-shadow: 0 1px 2px #000;
 }
 .box {
-  border: 1px solid #fff;
+  border: 1px solid #dfe1e8;
+  background-color: rgba(70,91,102,0.4);
   padding: 0.6vw 1.2vw;
+  min-height: 2.2vw;
+  min-width: 1vw;
+}
+.box.selected {
+  border-color: #a90015;
+  color: #a90015;
 }
 .box .shortcut {
   position: absolute;
@@ -405,6 +412,19 @@ body {
   bottom: 0;
   font-size: 1vw;
   padding: 0.1vw 0.2vw;
+}
+.menu {
+  position: absolute;
+  top: 2.2vw;
+  left: 2.2vw;
+  display: flex;
+}
+.menu .tools {
+  margin-right: 1.1vw;
+}
+.menu .tool {
+  position: relative;
+  margin-bottom: 1.1vw;
 }
 .constraints {
   position: absolute;

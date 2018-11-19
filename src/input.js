@@ -27,6 +27,7 @@ inject('pod', () => {
     ecs.emit('controls disabled')
     ecs.emit('hotkeys disabled')
     ecs.emit('constraints disabled')
+    ecs.emit('tools disabled')
     document.addEventListener('keydown', onkeydown)
     document.addEventListener('keyup', onkeyup)
     input = ''
@@ -43,6 +44,7 @@ inject('pod', () => {
     ecs.emit('controls enabled')
     ecs.emit('hotkeys enabled')
     ecs.emit('constraints enabled')
+    ecs.emit('tools enabled')
     document.removeEventListener('keydown', onkeydown)
     document.removeEventListener('keyup', onkeyup)
   })

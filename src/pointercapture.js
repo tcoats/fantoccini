@@ -20,6 +20,7 @@ inject('pod', () => {
         ecs.emit('controls enabled')
         ecs.emit('hotkeys enabled')
         ecs.emit('constraints enabled')
+        ecs.emit('tools enabled')
       }
       else {
         ecs.emit('pointer released')
@@ -27,6 +28,7 @@ inject('pod', () => {
         ecs.emit('controls disabled')
         ecs.emit('hotkeys disabled')
         ecs.emit('constraints disabled')
+        ecs.emit('tools disabled')
       }
     })
   })

@@ -47112,7 +47112,6 @@ inject('pod', function () {
   var boxMaterial = null;
   ecs.on('init', function () {
     worldcamera = new three.PerspectiveCamera(75, canvas.width / canvas.height, 0.1, 1000);
-    worldcamera.layers.enable(1);
     world = new three.Scene();
     groundMaterial = new three.MeshLambertMaterial({
       color: 0xFD9148
@@ -47168,14 +47167,14 @@ inject('pod', function () {
     camera.body.add(camera.head);
     entities[id] = camera;
   });
-  var inmenu = true;
+  var menuopen = false;
   ecs.on('menu open', function () {
     worldcamera.layers.enable(1);
-    inmenu = true;
+    menuopen = true;
   });
   ecs.on('menu close', function () {
     worldcamera.layers.disable(1);
-    inmenu = false;
+    menuopen = false;
   });
   ecs.on('load box', function (id, box) {
     var halfExtents = box.halfExtents ? box.halfExtents : new three.Vector3(1, 1, 1);
@@ -47677,7 +47676,7 @@ inject('pod', function () {
     input: 73
   };
   var menuDown = false;
-  var menuOpen = true;
+  var menuOpen = false;
   var menuOpenedAt = null;
   var physicsDown = false;
   var physicsMode = 0;
@@ -47763,12 +47762,14 @@ inject('pod', function () {
         ecs.emit('controls enabled');
         ecs.emit('hotkeys enabled');
         ecs.emit('constraints enabled');
+        ecs.emit('tools enabled');
       } else {
         ecs.emit('pointer released');
         ecs.emit('drag disabled');
         ecs.emit('controls disabled');
         ecs.emit('hotkeys disabled');
         ecs.emit('constraints disabled');
+        ecs.emit('tools disabled');
       }
     });
   });
@@ -47805,6 +47806,7 @@ inject('pod', function () {
     ecs.emit('controls disabled');
     ecs.emit('hotkeys disabled');
     ecs.emit('constraints disabled');
+    ecs.emit('tools disabled');
     document.addEventListener('keydown', onkeydown);
     document.addEventListener('keyup', onkeyup);
     input = '';
@@ -47819,7 +47821,128 @@ inject('pod', function () {
     ecs.emit('controls enabled');
     ecs.emit('hotkeys enabled');
     ecs.emit('constraints enabled');
+    ecs.emit('tools enabled');
     document.removeEventListener('keydown', onkeydown);
+    document.removeEventListener('keyup', onkeyup);
+  });
+});
+},{"injectinto":"node_modules/injectinto/inject.js"}],"src/tools.js":[function(require,module,exports) {
+var inject = require('injectinto');
+
+inject('pod', function () {
+  var ecs = inject.one('ecs');
+  var keys = {
+    one: 49,
+    two: 50,
+    three: 51,
+    four: 52,
+    five: 53,
+    swap: 81
+  };
+  var toolCurrent = 'pointer';
+  var toolPrev = 'move';
+  var menuIndex = null;
+  var toolIndex = null;
+  var menu = [['pointer', 'info'], ['move', 'scale', 'rotate']];
+  var timeoutHandle = null;
+
+  var commitPrevious = function commitPrevious() {
+    menuIndex = null;
+    toolIndex = null;
+    timeoutHandle = null;
+    ecs.emit('tool select', null, {
+      current: toolCurrent,
+      previous: toolPrev,
+      menuIndex: menuIndex,
+      toolIndex: toolIndex
+    });
+  };
+
+  var timeoutCheck = function timeoutCheck() {
+    if (timeoutHandle) clearTimeout(timeoutHandle);else if (toolPrev != toolCurrent) toolPrev = toolCurrent;
+    timeoutHandle = setTimeout(commitPrevious, 1000);
+  };
+
+  var menuCheck = function menuCheck(index) {
+    if (menuIndex == index) {
+      toolIndex++;
+      toolIndex %= menu[menuIndex].length;
+    } else {
+      menuIndex = index;
+      toolIndex = 0;
+    }
+
+    toolCurrent = menu[menuIndex][toolIndex];
+    ecs.emit('tool select', null, {
+      current: toolCurrent,
+      previous: toolPrev,
+      menuIndex: menuIndex,
+      toolIndex: toolIndex
+    });
+  };
+
+  var onkeyup = function onkeyup(e) {
+    switch (e.keyCode) {
+      case keys.one:
+        timeoutCheck();
+        menuCheck(0);
+        break;
+
+      case keys.two:
+        timeoutCheck();
+        menuCheck(1);
+        break;
+
+      case keys.three:
+        timeoutCheck();
+        menuCheck(2);
+        break;
+
+      case keys.four:
+        timeoutCheck();
+        menuCheck(3);
+        break;
+
+      case keys.five:
+        timeoutCheck();
+        menuCheck(4);
+        break;
+
+      case keys.swap:
+        var _ref = [toolPrev, toolCurrent];
+        toolCurrent = _ref[0];
+        toolPrev = _ref[1];
+        menuIndex = null;
+        toolIndex = null;
+
+        if (timeoutHandle) {
+          clearTimeout(timeoutHandle);
+          timeoutHandle = null;
+        }
+
+        ecs.emit('tool select', null, {
+          current: toolCurrent,
+          previous: toolPrev,
+          menuIndex: menuIndex,
+          toolIndex: toolIndex
+        });
+        break;
+    }
+  };
+
+  ecs.on('load', function () {
+    ecs.emit('tools menu', null, menu);
+    ecs.emit('tool select', null, {
+      current: toolCurrent,
+      previous: toolPrev,
+      menuIndex: menuIndex,
+      toolIndex: toolIndex
+    });
+  });
+  ecs.on('tools enabled', function () {
+    document.addEventListener('keyup', onkeyup);
+  });
+  ecs.on('tools disabled', function () {
     document.removeEventListener('keyup', onkeyup);
   });
 });
@@ -48950,12 +49073,12 @@ inject('pod', function () {
   ecs.on('spotlight set', function (id, entity) {
     return spotlight = entity;
   });
-  var inmenu = true;
+  var menuopen = false;
   ecs.on('menu open', function () {
-    return inmenu = true;
+    return menuopen = true;
   });
   ecs.on('menu close', function () {
-    return inmenu = false;
+    return menuopen = false;
   });
   var constraints = {
     x: false,
@@ -48970,6 +49093,14 @@ inject('pod', function () {
   ecs.on('physics mode', function (id, p) {
     return physicsMode = p;
   });
+  var menu = null;
+  var menuState = null;
+  ecs.on('tools menu', function (id, m) {
+    return menu = m;
+  });
+  ecs.on('tool select', function (id, s) {
+    return menuState = s;
+  });
 
   var h = require('snabbdom/h').default;
 
@@ -48978,11 +49109,27 @@ inject('pod', function () {
   var ui = function ui(state, params, ecs) {
     var elements = [];
 
-    if (inmenu) {
+    if (menuopen) {
       if (spotlight) elements.push([spotlight.mesh.position, h('div.test', "[".concat(spotlight.mesh.position.x.toFixed(2), ", ").concat(spotlight.mesh.position.y.toFixed(2), ", ").concat(spotlight.mesh.position.z.toFixed(2), "]"))]);
     }
 
-    return h('div#root', [h('div.constraints', [constraints.x ? h('div', 'X -') : h('div', 'X'), constraints.y ? h('div', 'Y -') : h('div', 'Y'), constraints.z ? h('div', 'Z -') : h('div', 'Z')]), h('div.crosshair'), inmenu ? h('div.box.physicsmode', [physicsModes[physicsMode], h('span.shortcut', 'P')]) : null].concat(_toConsumableArray(elements.map(function (e) {
+    return h('div#root', [h('div.constraints', [constraints.x ? h('div', 'X -') : h('div', 'X'), constraints.y ? h('div', 'Y -') : h('div', 'Y'), constraints.z ? h('div', 'Z -') : h('div', 'Z')]), h('div.crosshair')].concat(_toConsumableArray(menuopen ? [h('div.box.physicsmode', [physicsModes[physicsMode], h('span.shortcut', 'P')]), h('div.menu', menu.map(function (tools, menuIndex) {
+      return h('div.tools', tools.map(function (tool, toolIndex) {
+        return h('div.box.tool', {
+          class: {
+            selected: menuState && (menuState.current == tool || menuIndex == menuState.menuIndex && toolIndex == menuState.toolIndex)
+          }
+        }, [tool, toolIndex == 0 ? h('span.shortcut', (menuIndex + 1).toString()) : null]);
+      }));
+    }))] : []), [!menuopen && menuState != null && menuState.menuIndex != null && menuState.toolIndex != null ? h('div.menu', menu.map(function (tools, menuIndex) {
+      return h('div.tools', tools.map(function (tool, toolIndex) {
+        return h('div.box.tool', {
+          class: {
+            selected: menuIndex == menuState.menuIndex && toolIndex == menuState.toolIndex
+          }
+        }, [menuIndex == menuState.menuIndex ? tool : '', toolIndex == 0 ? h('span.shortcut', (menuIndex + 1).toString()) : null]);
+      }));
+    })) : null], _toConsumableArray(elements.map(function (e) {
       TEMP.copy(e[0]);
       TEMP.project(worldcamera);
       var x = (TEMP.x + 1.0) * 50;
@@ -49035,6 +49182,8 @@ if (!inject.oneornone('ecs')) {
   require('./pointercapture');
 
   require('./input');
+
+  require('./tools');
 
   require('./ui');
 
@@ -49123,25 +49272,20 @@ if (!inject.oneornone('ecs')) {
   });
   ecs.on('input submitted', function (id, input) {
     console.log(input);
-  });
-  var worldcamera = null;
-  ecs.on('load world camera', function (id, c) {
-    return worldcamera = c;
-  });
-  ecs.on('pointer click', function (id, e) {
-    var offset = new three.Vector3(0, 0, -3);
-    var lookDirection = new three.Quaternion();
-    worldcamera.getWorldQuaternion(lookDirection);
-    offset.applyQuaternion(lookDirection);
-    var position = new three.Vector3();
-    worldcamera.getWorldPosition(position);
-    offset.add(position);
-    ecs.emit('load box', ecs.id(), {
-      position: offset
-    });
-  });
+  }); // let worldcamera  = null
+  // ecs.on('load world camera', (id, c) => worldcamera = c)
+  // ecs.on('pointer click', (id, e) => {
+  //   const offset = new three.Vector3(0, 0, -3)
+  //   const lookDirection = new three.Quaternion()
+  //   worldcamera.getWorldQuaternion(lookDirection)
+  //   offset.applyQuaternion(lookDirection)
+  //   const position = new three.Vector3()
+  //   worldcamera.getWorldPosition(position)
+  //   offset.add(position)
+  //   ecs.emit('load box', ecs.id(), { position: offset })
+  // })
 } else location.reload(true);
-},{"injectinto":"node_modules/injectinto/inject.js","cannon":"node_modules/cannon/build/cannon.js","three":"node_modules/three/build/three.module.js","./ecs":"src/ecs.js","./physics":"src/physics.js","./display":"src/display.js","./controls":"src/controls.js","./constraints":"src/constraints.js","./drag":"src/drag.js","./hotkeys":"src/hotkeys.js","./pointercapture":"src/pointercapture.js","./input":"src/input.js","./ui":"src/ui.js"}],"../../.config/yarn/global/node_modules/parcel-bundler/src/builtins/hmr-runtime.js":[function(require,module,exports) {
+},{"injectinto":"node_modules/injectinto/inject.js","cannon":"node_modules/cannon/build/cannon.js","three":"node_modules/three/build/three.module.js","./ecs":"src/ecs.js","./physics":"src/physics.js","./display":"src/display.js","./controls":"src/controls.js","./constraints":"src/constraints.js","./drag":"src/drag.js","./hotkeys":"src/hotkeys.js","./pointercapture":"src/pointercapture.js","./input":"src/input.js","./tools":"src/tools.js","./ui":"src/ui.js"}],"../../.config/yarn/global/node_modules/parcel-bundler/src/builtins/hmr-runtime.js":[function(require,module,exports) {
 var global = arguments[3];
 var OVERLAY_ID = '__parcel__error__overlay__';
 var OldModule = module.bundle.Module;
@@ -49168,7 +49312,7 @@ var parent = module.bundle.parent;
 if ((!parent || !parent.isParcelRequire) && typeof WebSocket !== 'undefined') {
   var hostname = "" || location.hostname;
   var protocol = location.protocol === 'https:' ? 'wss' : 'ws';
-  var ws = new WebSocket(protocol + '://' + hostname + ':' + "56549" + '/');
+  var ws = new WebSocket(protocol + '://' + hostname + ':' + "56092" + '/');
 
   ws.onmessage = function (event) {
     var data = JSON.parse(event.data);

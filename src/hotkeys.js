@@ -7,7 +7,7 @@ inject('pod', () => {
     input: 73
   }
   let menuDown = false
-  let menuOpen = true
+  let menuOpen = false
   let menuOpenedAt = null
   let physicsDown = false
   let physicsMode = 0
