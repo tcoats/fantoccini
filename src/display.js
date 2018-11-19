@@ -101,11 +101,12 @@ inject('pod', () => {
     entities[id] = box
   })
 
-  ecs.on('delete', (id) => {
-    if (entities[id]) delete entities[id]
-  })
-
   let spotlight = null
+  ecs.on('clear spotlight', () => {
+    world.remove(spotlight.mesh)
+    spotlight = null
+    ecs.emit('spotlight clear')
+  })
   const setSpotlight = (intersects) => {
     let entity = null
     for (let intersect of intersects) {
@@ -118,11 +119,7 @@ inject('pod', () => {
       }
     }
     if (!entity) {
-      if (spotlight) {
-        world.remove(spotlight.mesh)
-        spotlight = null
-        ecs.emit('spotlight clear')
-      }
+      if (spotlight) ecs.emit('clear spotlight')
       return
     }
     if (spotlight && entity.id != spotlight.id) {
@@ -143,15 +140,15 @@ inject('pod', () => {
   }
 
   let selected = {}
-  ecs.on('pointer click', (id, e) => {
-    if (!spotlight) return
-    if (selected[spotlight.id]) {
-      world.remove(selected[spotlight.id].mesh)
-      delete selected[spotlight.id]
-      ecs.emit('selection removed', spotlight.id)
-      return
-    }
-    const selection = { id: spotlight.id, entity: spotlight.entity }
+  let currentTool = null
+  ecs.on('tool select', (id, tool) => currentTool = tool.current)
+  ecs.on('remove selection', (id) => {
+    world.remove(selected[id].mesh)
+    delete selected[id]
+    ecs.emit('selection removed', id)
+  })
+  ecs.on('add selection', (id, entity) => {
+    const selection = { id: id, entity: entity }
     selection.geometry = new three.EdgesGeometry(selection.entity.geometry)
     selection.mesh = new three.LineSegments(selection.geometry)
     selection.mesh.material.depthTest = false
@@ -161,6 +158,21 @@ inject('pod', () => {
     selected[selection.id] = selection
     world.add(selection.mesh)
     ecs.emit('selection added', selection.id, selection)
+  })
+  ecs.on('pointer click', (id, e) => {
+    if (currentTool != 'select') return
+    if (!spotlight) return
+    if (selected[spotlight.id])
+      return ecs.emit('remove selection', spotlight.id)
+    ecs.emit('add selection', spotlight.id, spotlight.entity)
+  })
+
+  ecs.on('delete', (id) => {
+    if (entities[id]) {
+      if (selected[id]) ecs.emit('remove selection', id)
+      if (entities[id].mesh) world.remove(entities[id].mesh)
+      delete entities[id]
+    }
   })
 
   const raycaster = new three.Raycaster()

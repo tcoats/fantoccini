@@ -1,7 +1,6 @@
 # Fantoccini
 
 ## Editor
-- [x] Tool toggle / selection
 - [ ] Design move tool plane generation
 - [ ] Move tool
 - [ ] Scale tool - is origin based on crosshair?
@@ -12,14 +11,8 @@
 - [ ] Enter / exit 3rd person control against character
 - [ ] Test constraint system
 
-## Scripts
-- [ ] Hotkey
-- [ ] Auto complete
-- [ ] Delete selected
-- [ ] Duplicate selected
-- [ ] New from template
-
 ## Perhaps
+- [ ] Drag JSON file to execute commands (e.g. config / levels)
 - [ ] Numeric entry?
 - [ ] Detect angle of drag for click threshold
 

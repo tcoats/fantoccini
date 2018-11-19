@@ -65,7 +65,7 @@ inject('pod', () => {
   const TEMP = new three.Vector3()
   const ui = (state, params, ecs) => {
     if (isexecute) return h('div#root', h('div.centered', h('div.autocomplete', [
-      h('div.option', currentInput),
+      h('div.option', currentInput.length > 0 ? currentInput : 'type script name to execute...'),
       ...scriptOptions.map((s, i) => i == 0 ? h('div.box', [s, h('span.shortcut', 'ENTER')]) : h('div.option', s))
     ])))
 

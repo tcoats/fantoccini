@@ -47074,7 +47074,7 @@ inject('pod', function () {
   });
   ecs.on('delete', function (id) {
     if (entities[id]) {
-      world.removeBody(entities[id]);
+      if (entities[id].body) world.removeBody(entities[id].body);
       delete entities[id];
     }
   });
@@ -47186,10 +47186,12 @@ inject('pod', function () {
     box.mesh.receiveShadow = true;
     entities[id] = box;
   });
-  ecs.on('delete', function (id) {
-    if (entities[id]) delete entities[id];
-  });
   var spotlight = null;
+  ecs.on('clear spotlight', function () {
+    world.remove(spotlight.mesh);
+    spotlight = null;
+    ecs.emit('spotlight clear');
+  });
 
   var setSpotlight = function setSpotlight(intersects) {
     var entity = null;
@@ -47225,12 +47227,7 @@ inject('pod', function () {
     }
 
     if (!entity) {
-      if (spotlight) {
-        world.remove(spotlight.mesh);
-        spotlight = null;
-        ecs.emit('spotlight clear');
-      }
-
+      if (spotlight) ecs.emit('clear spotlight');
       return;
     }
 
@@ -47256,19 +47253,19 @@ inject('pod', function () {
   };
 
   var selected = {};
-  ecs.on('pointer click', function (id, e) {
-    if (!spotlight) return;
-
-    if (selected[spotlight.id]) {
-      world.remove(selected[spotlight.id].mesh);
-      delete selected[spotlight.id];
-      ecs.emit('selection removed', spotlight.id);
-      return;
-    }
-
+  var currentTool = null;
+  ecs.on('tool select', function (id, tool) {
+    return currentTool = tool.current;
+  });
+  ecs.on('remove selection', function (id) {
+    world.remove(selected[id].mesh);
+    delete selected[id];
+    ecs.emit('selection removed', id);
+  });
+  ecs.on('add selection', function (id, entity) {
     var selection = {
-      id: spotlight.id,
-      entity: spotlight.entity
+      id: id,
+      entity: entity
     };
     selection.geometry = new three.EdgesGeometry(selection.entity.geometry);
     selection.mesh = new three.LineSegments(selection.geometry);
@@ -47279,6 +47276,19 @@ inject('pod', function () {
     selected[selection.id] = selection;
     world.add(selection.mesh);
     ecs.emit('selection added', selection.id, selection);
+  });
+  ecs.on('pointer click', function (id, e) {
+    if (currentTool != 'select') return;
+    if (!spotlight) return;
+    if (selected[spotlight.id]) return ecs.emit('remove selection', spotlight.id);
+    ecs.emit('add selection', spotlight.id, spotlight.entity);
+  });
+  ecs.on('delete', function (id) {
+    if (entities[id]) {
+      if (selected[id]) ecs.emit('remove selection', id);
+      if (entities[id].mesh) world.remove(entities[id].mesh);
+      delete entities[id];
+    }
   });
   var raycaster = new three.Raycaster();
 
@@ -47842,11 +47852,11 @@ inject('pod', function () {
     five: 53,
     swap: 81
   };
-  var toolCurrent = 'pointer';
+  var toolCurrent = 'select';
   var toolPrev = 'move';
   var menuIndex = null;
   var toolIndex = null;
-  var menu = [['pointer', 'info'], ['move', 'scale', 'rotate']];
+  var menu = [['select', 'info'], ['move', 'scale', 'rotate']];
   var timeoutHandle = null;
 
   var commitPrevious = function commitPrevious() {
@@ -47957,7 +47967,7 @@ inject('pod', function () {
 
   var three = require('three');
 
-  var scripts = ['create unit box', 'delete selected objects', 'duplicate selected objects'];
+  var scripts = ['create unit box', 'delete selected objects'];
   ecs.on('load', function () {
     ecs.emit('scripts available', null, scripts);
   });
@@ -47973,9 +47983,26 @@ inject('pod', function () {
     var position = new three.Vector3();
     worldcamera.getWorldPosition(position);
     offset.add(position);
-    ecs.emit('load box', ecs.id(), {
+    var id = ecs.id();
+    ecs.emit('load box', id, {
+      id: id,
       position: offset
     });
+  });
+  var selected = {};
+  ecs.on('selection removed', function (id) {
+    return delete selected[id];
+  });
+  ecs.on('selection added', function (id) {
+    return selected[id] = true;
+  });
+  ecs.on('delete selected objects', function () {
+    var _arr = Object.keys(selected);
+
+    for (var _i = 0; _i < _arr.length; _i++) {
+      var id = _arr[_i];
+      ecs.emit('delete', id);
+    }
   });
 });
 },{"injectinto":"node_modules/injectinto/inject.js","three":"node_modules/three/build/three.module.js"}],"../../.config/yarn/global/node_modules/parcel-bundler/src/builtins/bundle-url.js":[function(require,module,exports) {
@@ -49173,7 +49200,7 @@ inject('pod', function () {
   var TEMP = new three.Vector3();
 
   var ui = function ui(state, params, ecs) {
-    if (isexecute) return h('div#root', h('div.centered', h('div.autocomplete', [h('div.option', currentInput)].concat(_toConsumableArray(scriptOptions.map(function (s, i) {
+    if (isexecute) return h('div#root', h('div.centered', h('div.autocomplete', [h('div.option', currentInput.length > 0 ? currentInput : 'type script name to execute...')].concat(_toConsumableArray(scriptOptions.map(function (s, i) {
       return i == 0 ? h('div.box', [s, h('span.shortcut', 'ENTER')]) : h('div.option', s);
     }))))));
     var elements = [];
@@ -49366,7 +49393,7 @@ var parent = module.bundle.parent;
 if ((!parent || !parent.isParcelRequire) && typeof WebSocket !== 'undefined') {
   var hostname = "" || location.hostname;
   var protocol = location.protocol === 'https:' ? 'wss' : 'ws';
-  var ws = new WebSocket(protocol + '://' + hostname + ':' + "57428" + '/');
+  var ws = new WebSocket(protocol + '://' + hostname + ':' + "57748" + '/');
 
   ws.onmessage = function (event) {
     var data = JSON.parse(event.data);

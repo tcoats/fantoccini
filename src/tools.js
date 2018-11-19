@@ -9,12 +9,12 @@ inject('pod', () => {
     five: 53,
     swap: 81
   }
-  let toolCurrent = 'pointer'
+  let toolCurrent = 'select'
   let toolPrev = 'move'
   let menuIndex = null
   let toolIndex = null
   const menu = [
-    ['pointer', 'info'],
+    ['select', 'info'],
     ['move', 'scale', 'rotate']
   ]
   let timeoutHandle = null

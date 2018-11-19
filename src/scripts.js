@@ -5,8 +5,7 @@ inject('pod', () => {
 
   const scripts = [
     'create unit box',
-    'delete selected objects',
-    'duplicate selected objects'
+    'delete selected objects'
   ]
 
   ecs.on('load', () => {
@@ -23,6 +22,15 @@ inject('pod', () => {
     const position = new three.Vector3()
     worldcamera.getWorldPosition(position)
     offset.add(position)
-    ecs.emit('load box', ecs.id(), { position: offset })
+    const id = ecs.id()
+    ecs.emit('load box', id, { id: id, position: offset })
+  })
+
+
+  let selected = {}
+  ecs.on('selection removed', (id) => delete selected[id])
+  ecs.on('selection added', (id) => selected[id] = true)
+  ecs.on('delete selected objects', () => {
+    for (let id of Object.keys(selected)) ecs.emit('delete', id)
   })
 })

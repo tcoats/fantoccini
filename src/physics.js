@@ -76,7 +76,7 @@ inject('pod', () => {
 
   ecs.on('delete', (id) => {
     if (entities[id]) {
-      world.removeBody(entities[id])
+      if (entities[id].body) world.removeBody(entities[id].body)
       delete entities[id]
     }
   })
