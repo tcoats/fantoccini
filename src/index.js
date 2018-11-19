@@ -1,7 +1,5 @@
 const inject = require('injectinto')
 if (!inject.oneornone('ecs')) {
-  const cannon = require('cannon')
-  const three = require('three')
   const ecs = require('./ecs')()
   inject('ecs', ecs)
 
@@ -24,34 +22,18 @@ if (!inject.oneornone('ecs')) {
     .then(() => ecs.call('start'))
 
   ecs.on('load', () => {
-    const randomPosition = () => new cannon.Vec3(
-      (Math.random() - 0.5) * 10,
-      4 + Math.random() * 100,
-      (Math.random() - 0.5) * 10)
-    const randomSize = () => new cannon.Vec3(
-      3 + Math.random() * 3,
-      0.2 + Math.random() * 2,
-      3 + Math.random() * 3)
-    const loadBox = () => {
-      const id = ecs.id()
-      ecs.emit('load box', id, {
-        id: id,
-        position: randomPosition(),
-        halfExtents: randomSize()
-      })
-    }
     const groundId = ecs.id()
     ecs.emit('load ground', groundId, { id: groundId })
     const cameraId = ecs.id()
     ecs.emit('load camera', cameraId, { id: cameraId })
-    loadBox()
-    loadBox()
-    loadBox()
-    loadBox()
-    loadBox()
-    loadBox()
-    loadBox()
-    loadBox()
+    ecs.emit('create random box')
+    ecs.emit('create random box')
+    ecs.emit('create random box')
+    ecs.emit('create random box')
+    ecs.emit('create random box')
+    ecs.emit('create random box')
+    ecs.emit('create random box')
+    ecs.emit('create random box')
   })
 
   ecs.on('start', () => {

@@ -201,6 +201,68 @@ module.exports.many = (key) => _inject.many(key)
 module.exports.clear = (key) => _inject.clear(key)
 module.exports.clearAll = () => _inject.clearAll()
 
+},{}],"src/ecs.js":[function(require,module,exports) {
+module.exports = function () {
+  var free = [];
+  var counter = 0;
+  var listeners = {
+    'delete': [function (id) {
+      free.push(id);
+      res.emit('deleted', id);
+    }]
+  };
+  var res = {
+    id: function id() {
+      if (free.length > 0) return free.pop();
+      return ++counter;
+    },
+    on: function on(e, fn) {
+      if (!listeners[e]) listeners[e] = [];
+      listeners[e].push(fn);
+    },
+    emit: function emit(e, id) {
+      if (!listeners[e]) return;
+
+      for (var _len = arguments.length, args = new Array(_len > 2 ? _len - 2 : 0), _key = 2; _key < _len; _key++) {
+        args[_key - 2] = arguments[_key];
+      }
+
+      var _iteratorNormalCompletion = true;
+      var _didIteratorError = false;
+      var _iteratorError = undefined;
+
+      try {
+        for (var _iterator = listeners[e][Symbol.iterator](), _step; !(_iteratorNormalCompletion = (_step = _iterator.next()).done); _iteratorNormalCompletion = true) {
+          var listener = _step.value;
+          listener.apply(void 0, [id].concat(args));
+        }
+      } catch (err) {
+        _didIteratorError = true;
+        _iteratorError = err;
+      } finally {
+        try {
+          if (!_iteratorNormalCompletion && _iterator.return != null) {
+            _iterator.return();
+          }
+        } finally {
+          if (_didIteratorError) {
+            throw _iteratorError;
+          }
+        }
+      }
+    },
+    call: function call(e, id) {
+      for (var _len2 = arguments.length, args = new Array(_len2 > 2 ? _len2 - 2 : 0), _key2 = 2; _key2 < _len2; _key2++) {
+        args[_key2 - 2] = arguments[_key2];
+      }
+
+      return Promise.all(!listeners[e] ? [] : listeners[e].map(function (listener) {
+        return listener.apply(void 0, [id].concat(args));
+      }));
+    }
+  };
+  return res;
+};
 },{}],"node_modules/cannon/build/cannon.js":[function(require,module,exports) {
 var define;
 var global = arguments[3];
@@ -13891,7 +13953,125 @@ World.prototype.clearForces = function(){
 },{"../collision/AABB":3,"../collision/ArrayCollisionMatrix":4,"../collision/NaiveBroadphase":7,"../collision/Ray":9,"../collision/RaycastResult":10,"../equations/ContactEquation":19,"../equations/FrictionEquation":21,"../material/ContactMaterial":24,"../material/Material":25,"../math/Quaternion":28,"../math/Vec3":30,"../objects/Body":31,"../shapes/Shape":43,"../solver/GSSolver":46,"../utils/EventTarget":49,"../utils/TupleDictionary":52,"../utils/Vec3Pool":54,"./Narrowphase":55}]},{},[2])
 (2)
 });
-},{}],"node_modules/three/build/three.module.js":[function(require,module,exports) {
+},{}],"src/physics.js":[function(require,module,exports) {
+// http://schteppe.github.io/cannon.js/
+// http://schteppe.github.io/cannon.js/docs/
+var inject = require('injectinto');
+
+inject('pod', function () {
+  var ecs = inject.one('ecs');
+
+  var cannon = require('cannon');
+
+  var world = null;
+  var entities = {};
+  ecs.on('init', function () {
+    world = new cannon.World();
+    world.quatNormalizeSkip = 0;
+    world.quatNormalizeFast = false;
+    var solver = new cannon.GSSolver();
+    world.defaultContactMaterial.contactEquationStiffness = 1e9;
+    world.defaultContactMaterial.contactEquationRelaxation = 4;
+    solver.iterations = 7;
+    solver.tolerance = 0.1;
+    world.solver = new cannon.SplitSolver(solver);
+    world.gravity.set(0, -9.8, 0);
+    world.broadphase = new cannon.NaiveBroadphase();
+    var physicsMaterial = new cannon.Material('slipperyMaterial');
+    world.addContactMaterial(new cannon.ContactMaterial(physicsMaterial, physicsMaterial, 0.0, 0.3));
+  });
+
+  var setDamping = function setDamping(body, damping) {
+    body.linearDamping = damping;
+    body.angularDamping = damping;
+  };
+
+  var physicsMode = 0;
+  var physics = {
+    on: 0,
+    molasses: 1,
+    off: 2
+  };
+  ecs.on('physics mode', function (id, p) {
+    physicsMode = p;
+
+    switch (p) {
+      case physics.on:
+        world.gravity.set(0, -9.8, 0);
+
+        var _arr = Object.values(entities);
+
+        for (var _i = 0; _i < _arr.length; _i++) {
+          var entity = _arr[_i];
+          setDamping(entity.body, 0);
+        }
+
+        break;
+
+      case physics.molasses:
+        world.gravity.set(0, 0, 0);
+
+        var _arr2 = Object.values(entities);
+
+        for (var _i2 = 0; _i2 < _arr2.length; _i2++) {
+          var _entity = _arr2[_i2];
+          setDamping(_entity.body, 0.5);
+        }
+
+        break;
+    }
+  });
+  ecs.on('load ground', function (id, ground) {
+    ground.shape = new cannon.Plane();
+    ground.body = new cannon.Body({
+      mass: 0
+    });
+    ground.body.addShape(ground.shape);
+    ground.body.quaternion.setFromAxisAngle(new cannon.Vec3(1, 0, 0), -Math.PI / 2);
+    world.addBody(ground.body);
+  });
+  ecs.on('load box', function (id, box) {
+    var halfExtents = box.halfExtents ? box.halfExtents : new cannon.Vec3(1, 1, 1);
+    box.shape = new cannon.Box(halfExtents);
+    box.body = new cannon.Body({
+      mass: 5
+    });
+    box.body.addShape(box.shape);
+    box.body.position.copy(box.position);
+
+    switch (physicsMode) {
+      case physics.on:
+        setDamping(box.body, 0);
+        break;
+
+      case physics.molasses:
+        setDamping(box.body, 0.5);
+        break;
+    }
+
+    world.addBody(box.body);
+    entities[id] = box;
+  });
+  ecs.on('delete', function (id) {
+    if (entities[id]) {
+      if (entities[id].body) world.removeBody(entities[id].body);
+      delete entities[id];
+    }
+  });
+  ecs.on('physics delta', function (id, dt) {
+    if (physicsMode != 2) world.step(1.0 / 60.0, dt / 1000, 3);
+  });
+  ecs.on('physics to display delta', function (id, dt) {
+    var _arr3 = Object.values(entities);
+
+    for (var _i3 = 0; _i3 < _arr3.length; _i3++) {
+      var shape = _arr3[_i3];
+      shape.mesh.position.copy(shape.body.position);
+      shape.mesh.quaternion.copy(shape.body.quaternion);
+    }
+  });
+});
+},{"injectinto":"node_modules/injectinto/inject.js","cannon":"node_modules/cannon/build/cannon.js"}],"node_modules/three/build/three.module.js":[function(require,module,exports) {
 "use strict";
 
 Object.defineProperty(exports, "__esModule", {
@@ -46911,187 +47091,7 @@ exports.SceneUtils = SceneUtils;
 function LensFlare() {
   console.error('THREE.LensFlare has been moved to /examples/js/objects/Lensflare.js');
 }
-},{}],"src/ecs.js":[function(require,module,exports) {
-module.exports = function () {
-  var free = [];
-  var counter = 0;
-  var listeners = {
-    'delete': [function (id) {
-      free.push(id);
-      res.emit('deleted', id);
-    }]
-  };
-  var res = {
-    id: function id() {
-      if (free.length > 0) return free.pop();
-      return ++counter;
-    },
-    on: function on(e, fn) {
-      if (!listeners[e]) listeners[e] = [];
-      listeners[e].push(fn);
-    },
-    emit: function emit(e, id) {
-      if (!listeners[e]) return;
-
-      for (var _len = arguments.length, args = new Array(_len > 2 ? _len - 2 : 0), _key = 2; _key < _len; _key++) {
-        args[_key - 2] = arguments[_key];
-      }
-
-      var _iteratorNormalCompletion = true;
-      var _didIteratorError = false;
-      var _iteratorError = undefined;
-
-      try {
-        for (var _iterator = listeners[e][Symbol.iterator](), _step; !(_iteratorNormalCompletion = (_step = _iterator.next()).done); _iteratorNormalCompletion = true) {
-          var listener = _step.value;
-          listener.apply(void 0, [id].concat(args));
-        }
-      } catch (err) {
-        _didIteratorError = true;
-        _iteratorError = err;
-      } finally {
-        try {
-          if (!_iteratorNormalCompletion && _iterator.return != null) {
-            _iterator.return();
-          }
-        } finally {
-          if (_didIteratorError) {
-            throw _iteratorError;
-          }
-        }
-      }
-    },
-    call: function call(e, id) {
-      for (var _len2 = arguments.length, args = new Array(_len2 > 2 ? _len2 - 2 : 0), _key2 = 2; _key2 < _len2; _key2++) {
-        args[_key2 - 2] = arguments[_key2];
-      }
-
-      return Promise.all(!listeners[e] ? [] : listeners[e].map(function (listener) {
-        return listener.apply(void 0, [id].concat(args));
-      }));
-    }
-  };
-  return res;
-};
-},{}],"src/physics.js":[function(require,module,exports) {
-// http://schteppe.github.io/cannon.js/
-// http://schteppe.github.io/cannon.js/docs/
-var inject = require('injectinto');
-
-inject('pod', function () {
-  var ecs = inject.one('ecs');
-
-  var cannon = require('cannon');
-
-  var world = null;
-  var entities = {};
-  ecs.on('init', function () {
-    world = new cannon.World();
-    world.quatNormalizeSkip = 0;
-    world.quatNormalizeFast = false;
-    var solver = new cannon.GSSolver();
-    world.defaultContactMaterial.contactEquationStiffness = 1e9;
-    world.defaultContactMaterial.contactEquationRelaxation = 4;
-    solver.iterations = 7;
-    solver.tolerance = 0.1;
-    world.solver = new cannon.SplitSolver(solver);
-    world.gravity.set(0, -9.8, 0);
-    world.broadphase = new cannon.NaiveBroadphase();
-    var physicsMaterial = new cannon.Material('slipperyMaterial');
-    world.addContactMaterial(new cannon.ContactMaterial(physicsMaterial, physicsMaterial, 0.0, 0.3));
-  });
-
-  var setDamping = function setDamping(body, damping) {
-    body.linearDamping = damping;
-    body.angularDamping = damping;
-  };
-
-  var physicsMode = 0;
-  var physics = {
-    on: 0,
-    molasses: 1,
-    off: 2
-  };
-  ecs.on('physics mode', function (id, p) {
-    physicsMode = p;
-
-    switch (p) {
-      case physics.on:
-        world.gravity.set(0, -9.8, 0);
-
-        var _arr = Object.values(entities);
-
-        for (var _i = 0; _i < _arr.length; _i++) {
-          var entity = _arr[_i];
-          setDamping(entity.body, 0);
-        }
-
-        break;
-
-      case physics.molasses:
-        world.gravity.set(0, 0, 0);
-
-        var _arr2 = Object.values(entities);
-
-        for (var _i2 = 0; _i2 < _arr2.length; _i2++) {
-          var _entity = _arr2[_i2];
-          setDamping(_entity.body, 0.5);
-        }
-
-        break;
-    }
-  });
-  ecs.on('load ground', function (id, ground) {
-    ground.shape = new cannon.Plane();
-    ground.body = new cannon.Body({
-      mass: 0
-    });
-    ground.body.addShape(ground.shape);
-    ground.body.quaternion.setFromAxisAngle(new cannon.Vec3(1, 0, 0), -Math.PI / 2);
-    world.addBody(ground.body);
-  });
-  ecs.on('load box', function (id, box) {
-    var halfExtents = box.halfExtents ? box.halfExtents : new cannon.Vec3(1, 1, 1);
-    box.shape = new cannon.Box(halfExtents);
-    box.body = new cannon.Body({
-      mass: 5
-    });
-    box.body.addShape(box.shape);
-    box.body.position.copy(box.position);
-
-    switch (physicsMode) {
-      case physics.on:
-        setDamping(box.body, 0);
-        break;
-
-      case physics.molasses:
-        setDamping(box.body, 0.5);
-        break;
-    }
-
-    world.addBody(box.body);
-    entities[id] = box;
-  });
-  ecs.on('delete', function (id) {
-    if (entities[id]) {
-      if (entities[id].body) world.removeBody(entities[id].body);
-      delete entities[id];
-    }
-  });
-  ecs.on('physics delta', function (id, dt) {
-    if (physicsMode != 2) world.step(1.0 / 60.0, dt / 1000, 3);
-  });
-  ecs.on('physics to display delta', function (id, dt) {
-    var _arr3 = Object.values(entities);
-
-    for (var _i3 = 0; _i3 < _arr3.length; _i3++) {
-      var shape = _arr3[_i3];
-      shape.mesh.position.copy(shape.body.position);
-      shape.mesh.quaternion.copy(shape.body.quaternion);
-    }
-  });
-});
-},{"injectinto":"node_modules/injectinto/inject.js","cannon":"node_modules/cannon/build/cannon.js"}],"src/display.js":[function(require,module,exports) {
+},{}],"src/display.js":[function(require,module,exports) {
 // https://threejs.org/
 // https://threejs.org/docs/
 var inject = require('injectinto');
@@ -47967,7 +47967,9 @@ inject('pod', function () {
 
   var three = require('three');
 
-  var scripts = ['create unit box', 'delete selected objects'];
+  var cannon = require('cannon');
+
+  var scripts = ['create unit box', 'create random box', 'delete selected objects'];
   ecs.on('load', function () {
     ecs.emit('scripts available', null, scripts);
   });
@@ -47989,6 +47991,23 @@ inject('pod', function () {
       position: offset
     });
   });
+
+  var randomPosition = function randomPosition() {
+    return new cannon.Vec3((Math.random() - 0.5) * 10, 4 + Math.random() * 100, (Math.random() - 0.5) * 10);
+  };
+
+  var randomSize = function randomSize() {
+    return new cannon.Vec3(3 + Math.random() * 3, 0.2 + Math.random() * 2, 3 + Math.random() * 3);
+  };
+
+  ecs.on('create random box', function () {
+    var id = ecs.id();
+    ecs.emit('load box', id, {
+      id: id,
+      position: randomPosition(),
+      halfExtents: randomSize()
+    });
+  });
   var selected = {};
   ecs.on('selection removed', function (id) {
     return delete selected[id];
@@ -48005,7 +48024,7 @@ inject('pod', function () {
     }
   });
 });
-},{"injectinto":"node_modules/injectinto/inject.js","three":"node_modules/three/build/three.module.js"}],"../../.config/yarn/global/node_modules/parcel-bundler/src/builtins/bundle-url.js":[function(require,module,exports) {
+},{"injectinto":"node_modules/injectinto/inject.js","three":"node_modules/three/build/three.module.js","cannon":"node_modules/cannon/build/cannon.js"}],"../../.config/yarn/global/node_modules/parcel-bundler/src/builtins/bundle-url.js":[function(require,module,exports) {
 var bundleURL = null;
 
 function getBundleURLCached() {
@@ -49167,19 +49186,44 @@ inject('pod', function () {
   var isexecute = false;
   var currentInput = '';
   var scriptOptions = [];
+  var selectedOption = 0;
+  var keys = {
+    up: 38,
+    down: 40
+  };
+
+  var onkeyup = function onkeyup(e) {
+    if (scriptOptions.length == 0) return;
+
+    switch (e.keyCode) {
+      case keys.down:
+        selectedOption++;
+        selectedOption = Math.min(selectedOption, scriptOptions.length - 1);
+        break;
+
+      case keys.up:
+        selectedOption--;
+        selectedOption = Math.max(0, selectedOption);
+        break;
+    }
+  };
+
   ecs.on('menu execute', function () {
+    document.addEventListener('keyup', onkeyup);
     isexecute = true;
     currentInput = '';
     scriptOptions = [];
   });
   ecs.on('input disabled', function () {
-    return isexecute = false;
+    document.removeEventListener('keyup', onkeyup);
+    isexecute = false;
   });
   ecs.on('input updated', function (id, input) {
     if (!isexecute) return;
     currentInput = input;
 
     if (currentInput == '') {
+      selectedOption = 0;
       scriptOptions = [];
       return;
     }
@@ -49187,12 +49231,14 @@ inject('pod', function () {
     scriptOptions = scripts.filter(function (s) {
       return s.indexOf(currentInput) == 0;
     });
+    selectedOption = 0;
   });
   ecs.on('input submitted', function (id, input) {
+    document.removeEventListener('keyup', onkeyup);
     scriptOptions = scripts.filter(function (s) {
       return s.indexOf(currentInput) == 0;
     });
-    if (scriptOptions.length > 0) ecs.emit(scriptOptions[0]);
+    if (scriptOptions.length > 0) ecs.emit(scriptOptions[selectedOption]);
   });
 
   var h = require('snabbdom/h').default;
@@ -49201,7 +49247,7 @@ inject('pod', function () {
 
   var ui = function ui(state, params, ecs) {
     if (isexecute) return h('div#root', h('div.centered', h('div.autocomplete', [h('div.option', currentInput.length > 0 ? currentInput : 'type script name to execute...')].concat(_toConsumableArray(scriptOptions.map(function (s, i) {
-      return i == 0 ? h('div.box', [s, h('span.shortcut', 'ENTER')]) : h('div.option', s);
+      return i == selectedOption ? h('div.box', [s, h('span.shortcut', 'ENTER')]) : h('div.option', s);
     }))))));
     var elements = [];
 
@@ -49255,10 +49301,6 @@ inject('pod', function () {
 var inject = require('injectinto');
 
 if (!inject.oneornone('ecs')) {
-  var cannon = require('cannon');
-
-  var three = require('three');
-
   var ecs = require('./ecs')();
 
   inject('ecs', ecs);
@@ -49315,23 +49357,6 @@ if (!inject.oneornone('ecs')) {
     return ecs.call('start');
   });
   ecs.on('load', function () {
-    var randomPosition = function randomPosition() {
-      return new cannon.Vec3((Math.random() - 0.5) * 10, 4 + Math.random() * 100, (Math.random() - 0.5) * 10);
-    };
-
-    var randomSize = function randomSize() {
-      return new cannon.Vec3(3 + Math.random() * 3, 0.2 + Math.random() * 2, 3 + Math.random() * 3);
-    };
-
-    var loadBox = function loadBox() {
-      var id = ecs.id();
-      ecs.emit('load box', id, {
-        id: id,
-        position: randomPosition(),
-        halfExtents: randomSize()
-      });
-    };
-
     var groundId = ecs.id();
     ecs.emit('load ground', groundId, {
       id: groundId
@@ -49340,14 +49365,14 @@ if (!inject.oneornone('ecs')) {
     ecs.emit('load camera', cameraId, {
       id: cameraId
     });
-    loadBox();
-    loadBox();
-    loadBox();
-    loadBox();
-    loadBox();
-    loadBox();
-    loadBox();
-    loadBox();
+    ecs.emit('create random box');
+    ecs.emit('create random box');
+    ecs.emit('create random box');
+    ecs.emit('create random box');
+    ecs.emit('create random box');
+    ecs.emit('create random box');
+    ecs.emit('create random box');
+    ecs.emit('create random box');
   });
   ecs.on('start', function () {
     var last = Date.now();
@@ -49366,7 +49391,7 @@ if (!inject.oneornone('ecs')) {
     window.requestAnimationFrame(animate);
   });
 } else location.reload(true);
-},{"injectinto":"node_modules/injectinto/inject.js","cannon":"node_modules/cannon/build/cannon.js","three":"node_modules/three/build/three.module.js","./ecs":"src/ecs.js","./physics":"src/physics.js","./display":"src/display.js","./controls":"src/controls.js","./constraints":"src/constraints.js","./drag":"src/drag.js","./hotkeys":"src/hotkeys.js","./pointercapture":"src/pointercapture.js","./input":"src/input.js","./tools":"src/tools.js","./scripts":"src/scripts.js","./ui":"src/ui.js"}],"../../.config/yarn/global/node_modules/parcel-bundler/src/builtins/hmr-runtime.js":[function(require,module,exports) {
+},{"injectinto":"node_modules/injectinto/inject.js","./ecs":"src/ecs.js","./physics":"src/physics.js","./display":"src/display.js","./controls":"src/controls.js","./constraints":"src/constraints.js","./drag":"src/drag.js","./hotkeys":"src/hotkeys.js","./pointercapture":"src/pointercapture.js","./input":"src/input.js","./tools":"src/tools.js","./scripts":"src/scripts.js","./ui":"src/ui.js"}],"../../.config/yarn/global/node_modules/parcel-bundler/src/builtins/hmr-runtime.js":[function(require,module,exports) {
 var global = arguments[3];
 var OVERLAY_ID = '__parcel__error__overlay__';
 var OldModule = module.bundle.Module;
@@ -49393,7 +49418,7 @@ var parent = module.bundle.parent;
 if ((!parent || !parent.isParcelRequire) && typeof WebSocket !== 'undefined') {
   var hostname = "" || location.hostname;
   var protocol = location.protocol === 'https:' ? 'wss' : 'ws';
-  var ws = new WebSocket(protocol + '://' + hostname + ':' + "57748" + '/');
+  var ws = new WebSocket(protocol + '://' + hostname + ':' + "58049" + '/');
 
   ws.onmessage = function (event) {
     var data = JSON.parse(event.data);

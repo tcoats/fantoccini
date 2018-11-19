@@ -41,24 +41,49 @@ inject('pod', () => {
   let isexecute = false
   let currentInput = ''
   let scriptOptions = []
+  let selectedOption = 0
+  const keys = {
+    up: 38,
+    down: 40
+  }
+  const onkeyup = (e) => {
+    if (scriptOptions.length == 0) return
+    switch (e.keyCode) {
+      case keys.down:
+        selectedOption++
+        selectedOption = Math.min(selectedOption, scriptOptions.length - 1)
+        break;
+      case keys.up:
+        selectedOption--
+        selectedOption = Math.max(0, selectedOption)
+        break;
+    }
+  }
   ecs.on('menu execute', () => {
+    document.addEventListener('keyup', onkeyup)
     isexecute = true
     currentInput = ''
     scriptOptions = []
   })
-  ecs.on('input disabled', () => isexecute = false)
+  ecs.on('input disabled', () => {
+    document.removeEventListener('keyup', onkeyup)
+    isexecute = false
+  })
   ecs.on('input updated', (id, input) => {
     if (!isexecute) return
     currentInput = input
     if (currentInput == '') {
+      selectedOption = 0
       scriptOptions = []
       return
     }
     scriptOptions = scripts.filter((s) => s.indexOf(currentInput) == 0)
+    selectedOption = 0
   })
   ecs.on('input submitted', (id, input) => {
+    document.removeEventListener('keyup', onkeyup)
     scriptOptions = scripts.filter((s) => s.indexOf(currentInput) == 0)
-    if (scriptOptions.length > 0) ecs.emit(scriptOptions[0])
+    if (scriptOptions.length > 0) ecs.emit(scriptOptions[selectedOption])
   })
 
   const h = require('snabbdom/h').default
@@ -66,7 +91,7 @@ inject('pod', () => {
   const ui = (state, params, ecs) => {
     if (isexecute) return h('div#root', h('div.centered', h('div.autocomplete', [
       h('div.option', currentInput.length > 0 ? currentInput : 'type script name to execute...'),
-      ...scriptOptions.map((s, i) => i == 0 ? h('div.box', [s, h('span.shortcut', 'ENTER')]) : h('div.option', s))
+      ...scriptOptions.map((s, i) => i == selectedOption ? h('div.box', [s, h('span.shortcut', 'ENTER')]) : h('div.option', s))
     ])))
 
     const elements = []

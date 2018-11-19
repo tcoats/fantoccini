@@ -52,26 +52,11 @@ inject('pod', () => {
   }
   const onkeyup = (e) => {
     switch (e.keyCode) {
-      case keys.one:
-        timeoutCheck()
-        menuCheck(0)
-        break
-      case keys.two:
-        timeoutCheck()
-        menuCheck(1)
-        break
-      case keys.three:
-        timeoutCheck()
-        menuCheck(2)
-        break
-      case keys.four:
-        timeoutCheck()
-        menuCheck(3)
-        break
-      case keys.five:
-        timeoutCheck()
-        menuCheck(4)
-        break
+      case keys.one: timeoutCheck(); menuCheck(0); break
+      case keys.two: timeoutCheck(); menuCheck(1); break
+      case keys.three: timeoutCheck(); menuCheck(2); break
+      case keys.four: timeoutCheck(); menuCheck(3); break
+      case keys.five: timeoutCheck(); menuCheck(4); break
       case keys.swap:
         [toolCurrent, toolPrev] = [toolPrev, toolCurrent]
         menuIndex = null
