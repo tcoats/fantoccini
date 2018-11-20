@@ -62,6 +62,12 @@ inject('pod', () => {
     document.removeEventListener('mousemove', onmove)
     document.removeEventListener('keydown', onkeydown)
     document.removeEventListener('keyup', onkeyup)
+    pressedforward = false
+    pressedbackward = false
+    pressedleft = false
+    pressedright = false
+    pressedup = false
+    presseddown = false
   })
 
   const impulse = new three.Vector3()

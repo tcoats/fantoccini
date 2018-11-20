@@ -1,6 +1,7 @@
 # Fantoccini
 
 ## Editor
+- [ ] Clear dangling keydowns
 - [ ] Design move tool plane generation
 - [ ] Move tool
 - [ ] Scale tool - is origin based on crosshair?
