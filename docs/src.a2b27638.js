@@ -47103,7 +47103,7 @@ inject('pod', function () {
 
   var canvas = document.getElementById('canvas');
   var entities = {};
-  var world = null;
+  var worldscene = null;
   var renderer = null;
   var worldcamera = null;
   var axiscamera = null;
@@ -47112,23 +47112,23 @@ inject('pod', function () {
   var boxMaterial = null;
   ecs.on('init', function () {
     worldcamera = new three.PerspectiveCamera(75, canvas.width / canvas.height, 0.1, 1000);
-    world = new three.Scene();
+    worldscene = new three.Scene();
     groundMaterial = new three.MeshLambertMaterial({
       color: 0xFD9148
     });
     boxMaterial = new three.MeshLambertMaterial({
       color: 0x6297D0
-    }); // world.fog = new three.Fog(0xffffff, 0, 200)
+    }); // worldscene.fog = new three.Fog(0xffffff, 0, 200)
     // Three Point Lighting
 
     var keyLight = new three.DirectionalLight(0xffffff, 1);
     keyLight.position.set(-1, 1, 1);
-    world.add(keyLight);
+    worldscene.add(keyLight);
     var fillLight = new three.DirectionalLight(0xffffff, 0.5);
     fillLight.position.set(1, 1, -1);
-    world.add(fillLight);
+    worldscene.add(fillLight);
     var backLight = new three.AmbientLight(0xffffff, 0.2);
-    world.add(backLight);
+    worldscene.add(backLight);
     renderer = new three.WebGLRenderer({
       canvas: canvas
     });
@@ -47144,6 +47144,7 @@ inject('pod', function () {
   });
   ecs.on('load', function () {
     ecs.emit('load world camera', null, worldcamera);
+    ecs.emit('load world scene', null, worldscene);
   });
   ecs.on('load ground', function (id, ground) {
     ground.geometry = new three.PlaneGeometry(3000, 3000, 50, 50);
@@ -47153,14 +47154,14 @@ inject('pod', function () {
     ground.mesh.receiveShadow = true;
     ground.mesh.ecsid = id;
     ground.selectable = false;
-    world.add(ground.mesh);
+    worldscene.add(ground.mesh);
     entities[id] = ground;
   });
   ecs.on('load camera', function (id, camera) {
     camera.body = new three.Object3D();
     camera.body.ecsid = id;
     camera.selectable = false;
-    world.add(camera.body);
+    worldscene.add(camera.body);
     camera.head = new three.Object3D();
     camera.head.add(worldcamera);
     camera.body.position.y = 2;
@@ -47181,14 +47182,56 @@ inject('pod', function () {
     box.geometry = new three.BoxGeometry(halfExtents.x * 2, halfExtents.y * 2, halfExtents.z * 2);
     box.mesh = new three.Mesh(box.geometry, boxMaterial);
     box.mesh.ecsid = id;
-    world.add(box.mesh);
+    worldscene.add(box.mesh);
     box.mesh.castShadow = true;
     box.mesh.receiveShadow = true;
     entities[id] = box;
   });
+  ecs.on('delete', function (id) {
+    if (entities[id]) {
+      if (entities[id].mesh) worldscene.remove(entities[id].mesh);
+      delete entities[id];
+    }
+  });
+  ecs.on('display delta', function (id, dt) {
+    worldcamera.getWorldQuaternion(axiscamera.quaternion);
+    axiscamera.position.set(0, 0, 1);
+    axiscamera.position.applyQuaternion(axiscamera.quaternion);
+    renderer.clear(true, true, true);
+    renderer.setViewport(0, 0, canvas.width, canvas.height);
+    renderer.render(worldscene, worldcamera);
+    renderer.clear(false, true, false);
+    renderer.setViewport(10, canvas.height - 60, 50, 50);
+    renderer.render(axisscene, axiscamera);
+  });
+});
+},{"injectinto":"node_modules/injectinto/inject.js","three":"node_modules/three/build/three.module.js"}],"src/selection.js":[function(require,module,exports) {
+var inject = require('injectinto');
+
+inject('pod', function () {
+  var ecs = inject.one('ecs');
+
+  var three = require('three');
+
+  var crosshair = new three.Vector2(0, 0);
+  var worldscene = null;
+  var worldcamera = null;
+  ecs.on('load world scene', function (id, scene) {
+    return worldscene = scene;
+  });
+  ecs.on('load world camera', function (id, camera) {
+    return worldcamera = camera;
+  });
+  var entities = {};
+  ecs.on('load box', function (id, box) {
+    return entities[id] = box;
+  });
+  ecs.on('delete', function (id) {
+    if (entities[id]) delete entities[id];
+  });
   var spotlight = null;
   ecs.on('clear spotlight', function () {
-    world.remove(spotlight.mesh);
+    worldscene.remove(spotlight.mesh);
     spotlight = null;
     ecs.emit('spotlight clear');
   });
@@ -47232,7 +47275,7 @@ inject('pod', function () {
     }
 
     if (spotlight && entity.id != spotlight.id) {
-      world.remove(spotlight.mesh);
+      worldscene.remove(spotlight.mesh);
       spotlight = null;
     }
 
@@ -47247,7 +47290,7 @@ inject('pod', function () {
       spotlight.mesh.material.color = new three.Color(0xffffff);
       spotlight.mesh.material.linewidth = 3;
       spotlight.mesh.layers.set(1);
-      world.add(spotlight.mesh);
+      worldscene.add(spotlight.mesh);
       ecs.emit('spotlight set', entity.id, spotlight);
     }
   };
@@ -47258,7 +47301,7 @@ inject('pod', function () {
     return currentTool = tool.current;
   });
   ecs.on('remove selection', function (id) {
-    world.remove(selected[id].mesh);
+    worldscene.remove(selected[id].mesh);
     delete selected[id];
     ecs.emit('selection removed', id);
   });
@@ -47274,7 +47317,7 @@ inject('pod', function () {
     selection.mesh.material.linewidth = 1; // selection.mesh.layers.set(1)
 
     selected[selection.id] = selection;
-    world.add(selection.mesh);
+    worldscene.add(selection.mesh);
     ecs.emit('selection added', selection.id, selection);
   });
   ecs.on('pointer click', function (id, e) {
@@ -47284,22 +47327,15 @@ inject('pod', function () {
     ecs.emit('add selection', spotlight.id, spotlight.entity);
   });
   ecs.on('delete', function (id) {
-    if (entities[id]) {
-      if (selected[id]) ecs.emit('remove selection', id);
-      if (entities[id].mesh) world.remove(entities[id].mesh);
-      delete entities[id];
-    }
+    if (selected[id]) ecs.emit('remove selection', id);
+    if (spotlight && spotlight.id == id) ecs.emit('spotlight clear');
   });
   var raycaster = new three.Raycaster();
-
-  var raycast = function raycast(coords, camera) {
-    raycaster.setFromCamera(crosshair, camera);
-    return raycaster.intersectObjects(world.children);
-  };
-
   ecs.on('physics to display delta', function (id, dt) {
     raycaster.setFromCamera(crosshair, worldcamera);
-    setSpotlight(raycaster.intersectObjects(world.children));
+    setSpotlight(raycaster.intersectObjects(Object.values(entities).map(function (e) {
+      return e.mesh;
+    })));
 
     if (spotlight) {
       spotlight.mesh.position.copy(spotlight.entity.mesh.position);
@@ -47313,18 +47349,6 @@ inject('pod', function () {
       selection.mesh.position.copy(selection.entity.mesh.position);
       selection.mesh.quaternion.copy(selection.entity.mesh.quaternion);
     }
-  });
-  var crosshair = new three.Vector2(0, 0);
-  ecs.on('display delta', function (id, dt) {
-    worldcamera.getWorldQuaternion(axiscamera.quaternion);
-    axiscamera.position.set(0, 0, 1);
-    axiscamera.position.applyQuaternion(axiscamera.quaternion);
-    renderer.clear(true, true, true);
-    renderer.setViewport(0, 0, canvas.width, canvas.height);
-    renderer.render(world, worldcamera);
-    renderer.clear(false, true, false);
-    renderer.setViewport(10, canvas.height - 60, 50, 50);
-    renderer.render(axisscene, axiscamera);
   });
 });
 },{"injectinto":"node_modules/injectinto/inject.js","three":"node_modules/three/build/three.module.js"}],"src/controls.js":[function(require,module,exports) {
@@ -47434,6 +47458,12 @@ inject('pod', function () {
     document.removeEventListener('mousemove', onmove);
     document.removeEventListener('keydown', onkeydown);
     document.removeEventListener('keyup', onkeyup);
+    pressedforward = false;
+    pressedbackward = false;
+    pressedleft = false;
+    pressedright = false;
+    pressedup = false;
+    presseddown = false;
   });
   var impulse = new three.Vector3();
   ecs.on('event delta', function (id, dt) {
@@ -49309,6 +49339,8 @@ if (!inject.oneornone('ecs')) {
 
   require('./display');
 
+  require('./selection');
+
   require('./controls');
 
   require('./constraints');
@@ -49391,7 +49423,7 @@ if (!inject.oneornone('ecs')) {
     window.requestAnimationFrame(animate);
   });
 } else location.reload(true);
-},{"injectinto":"node_modules/injectinto/inject.js","./ecs":"src/ecs.js","./physics":"src/physics.js","./display":"src/display.js","./controls":"src/controls.js","./constraints":"src/constraints.js","./drag":"src/drag.js","./hotkeys":"src/hotkeys.js","./pointercapture":"src/pointercapture.js","./input":"src/input.js","./tools":"src/tools.js","./scripts":"src/scripts.js","./ui":"src/ui.js"}],"../../.config/yarn/global/node_modules/parcel-bundler/src/builtins/hmr-runtime.js":[function(require,module,exports) {
+},{"injectinto":"node_modules/injectinto/inject.js","./ecs":"src/ecs.js","./physics":"src/physics.js","./display":"src/display.js","./selection":"src/selection.js","./controls":"src/controls.js","./constraints":"src/constraints.js","./drag":"src/drag.js","./hotkeys":"src/hotkeys.js","./pointercapture":"src/pointercapture.js","./input":"src/input.js","./tools":"src/tools.js","./scripts":"src/scripts.js","./ui":"src/ui.js"}],"../../.config/yarn/global/node_modules/parcel-bundler/src/builtins/hmr-runtime.js":[function(require,module,exports) {
 var global = arguments[3];
 var OVERLAY_ID = '__parcel__error__overlay__';
 var OldModule = module.bundle.Module;
@@ -49418,7 +49450,7 @@ var parent = module.bundle.parent;
 if ((!parent || !parent.isParcelRequire) && typeof WebSocket !== 'undefined') {
   var hostname = "" || location.hostname;
   var protocol = location.protocol === 'https:' ? 'wss' : 'ws';
-  var ws = new WebSocket(protocol + '://' + hostname + ':' + "58211" + '/');
+  var ws = new WebSocket(protocol + '://' + hostname + ':' + "64887" + '/');
 
   ws.onmessage = function (event) {
     var data = JSON.parse(event.data);

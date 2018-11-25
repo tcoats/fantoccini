@@ -5,6 +5,7 @@ if (!inject.oneornone('ecs')) {
 
   require('./physics')
   require('./display')
+  require('./selection')
   require('./controls')
   require('./constraints')
   require('./drag')

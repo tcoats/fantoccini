@@ -1,7 +1,23 @@
 # Fantoccini
 
+## Move tool
+- All unconstrained = plane normal to camera
+- One constrained = plane on both unconstrained axies
+- Two constrained = line on unconstrained axis
+- Three constrained = nothing happening
+- Ray cast and check against layers
+- Planes need to be `side = three.DoubleSide`
+
+## Layers
+1. Default
+2. Menu FX
+3. Plane and line math for tools
+4. General FX
+
 ## Editor
-- [ ] Clear dangling keydowns
+- [ ] Refactor selection to use [Group](https://threejs.org/docs/index.html#api/en/objects/Group) to make edits easier
+- [ ] Refactor spotlight to use layers
+- [ ] Work out two constrained line math
 - [ ] Design move tool plane generation
 - [ ] Move tool
 - [ ] Scale tool - is origin based on crosshair?

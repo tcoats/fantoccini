@@ -8,7 +8,7 @@ inject('pod', () => {
   const canvas = document.getElementById('canvas')
 
   let entities = {}
-  let world = null
+  let worldscene = null
   let renderer = null
   let worldcamera = null
   let axiscamera = null
@@ -20,22 +20,22 @@ inject('pod', () => {
   ecs.on('init', () => {
     worldcamera = new three.PerspectiveCamera(
       75, canvas.width / canvas.height, 0.1, 1000)
-    world = new three.Scene()
+    worldscene = new three.Scene()
     groundMaterial = new three.MeshLambertMaterial({ color: 0xFD9148 })
     boxMaterial = new three.MeshLambertMaterial({ color: 0x6297D0 })
-    // world.fog = new three.Fog(0xffffff, 0, 200)
+    // worldscene.fog = new three.Fog(0xffffff, 0, 200)
 
     // Three Point Lighting
     const keyLight = new three.DirectionalLight(0xffffff, 1)
     keyLight.position.set(-1, 1, 1)
-    world.add(keyLight)
+    worldscene.add(keyLight)
 
     const fillLight = new three.DirectionalLight(0xffffff, 0.5)
     fillLight.position.set(1, 1, -1)
-    world.add(fillLight)
+    worldscene.add(fillLight)
 
     const backLight = new three.AmbientLight(0xffffff, 0.2)
-    world.add(backLight)
+    worldscene.add(backLight)
 
     renderer = new three.WebGLRenderer({ canvas: canvas })
     renderer.shadowMap.enabled = true
@@ -52,6 +52,7 @@ inject('pod', () => {
 
   ecs.on('load', () => {
     ecs.emit('load world camera', null, worldcamera)
+    ecs.emit('load world scene', null, worldscene)
   })
 
   ecs.on('load ground', (id, ground) => {
@@ -62,7 +63,7 @@ inject('pod', () => {
     ground.mesh.receiveShadow = true
     ground.mesh.ecsid = id
     ground.selectable = false
-    world.add(ground.mesh)
+    worldscene.add(ground.mesh)
     entities[id] = ground
   })
 
@@ -70,7 +71,7 @@ inject('pod', () => {
     camera.body = new three.Object3D()
     camera.body.ecsid = id
     camera.selectable = false
-    world.add(camera.body)
+    worldscene.add(camera.body)
     camera.head = new three.Object3D()
     camera.head.add(worldcamera)
     camera.body.position.y = 2
@@ -95,112 +96,26 @@ inject('pod', () => {
       halfExtents.x * 2, halfExtents.y * 2, halfExtents.z * 2)
     box.mesh = new three.Mesh(box.geometry, boxMaterial)
     box.mesh.ecsid = id
-    world.add(box.mesh)
+    worldscene.add(box.mesh)
     box.mesh.castShadow = true
     box.mesh.receiveShadow = true
     entities[id] = box
   })
 
-  let spotlight = null
-  ecs.on('clear spotlight', () => {
-    world.remove(spotlight.mesh)
-    spotlight = null
-    ecs.emit('spotlight clear')
-  })
-  const setSpotlight = (intersects) => {
-    let entity = null
-    for (let intersect of intersects) {
-      const ecsid = intersect.object.ecsid
-      if (ecsid && entities[ecsid]) {
-        const e = entities[ecsid]
-        if (e.selectable === false) continue
-        entity = e
-        break
-      }
-    }
-    if (!entity) {
-      if (spotlight) ecs.emit('clear spotlight')
-      return
-    }
-    if (spotlight && entity.id != spotlight.id) {
-      world.remove(spotlight.mesh)
-      spotlight = null
-    }
-    if (!spotlight) {
-      spotlight = { id: entity.id, entity: entity }
-      spotlight.geometry = new three.EdgesGeometry(entity.geometry)
-      spotlight.mesh = new three.LineSegments(spotlight.geometry)
-      spotlight.mesh.material.depthTest = false
-      spotlight.mesh.material.color = new three.Color(0xffffff)
-      spotlight.mesh.material.linewidth = 3
-      spotlight.mesh.layers.set(1)
-      world.add(spotlight.mesh)
-      ecs.emit('spotlight set', entity.id, spotlight)
-    }
-  }
-
-  let selected = {}
-  let currentTool = null
-  ecs.on('tool select', (id, tool) => currentTool = tool.current)
-  ecs.on('remove selection', (id) => {
-    world.remove(selected[id].mesh)
-    delete selected[id]
-    ecs.emit('selection removed', id)
-  })
-  ecs.on('add selection', (id, entity) => {
-    const selection = { id: id, entity: entity }
-    selection.geometry = new three.EdgesGeometry(selection.entity.geometry)
-    selection.mesh = new three.LineSegments(selection.geometry)
-    selection.mesh.material.depthTest = false
-    selection.mesh.material.color = new three.Color(0xffffff)
-    selection.mesh.material.linewidth = 1
-    // selection.mesh.layers.set(1)
-    selected[selection.id] = selection
-    world.add(selection.mesh)
-    ecs.emit('selection added', selection.id, selection)
-  })
-  ecs.on('pointer click', (id, e) => {
-    if (currentTool != 'select') return
-    if (!spotlight) return
-    if (selected[spotlight.id])
-      return ecs.emit('remove selection', spotlight.id)
-    ecs.emit('add selection', spotlight.id, spotlight.entity)
-  })
-
   ecs.on('delete', (id) => {
     if (entities[id]) {
-      if (selected[id]) ecs.emit('remove selection', id)
-      if (entities[id].mesh) world.remove(entities[id].mesh)
+      if (entities[id].mesh) worldscene.remove(entities[id].mesh)
       delete entities[id]
     }
   })
 
-  const raycaster = new three.Raycaster()
-  const raycast = (coords, camera) => {
-    raycaster.setFromCamera(crosshair, camera)
-    return raycaster.intersectObjects(world.children)
-  }
-  ecs.on('physics to display delta', (id, dt) => {
-    raycaster.setFromCamera(crosshair, worldcamera)
-    setSpotlight(raycaster.intersectObjects(world.children))
-    if (spotlight) {
-      spotlight.mesh.position.copy(spotlight.entity.mesh.position)
-      spotlight.mesh.quaternion.copy(spotlight.entity.mesh.quaternion)
-    }
-    for (let selection of Object.values(selected)) {
-      selection.mesh.position.copy(selection.entity.mesh.position)
-      selection.mesh.quaternion.copy(selection.entity.mesh.quaternion)
-    }
-  })
-
-  const crosshair = new three.Vector2(0, 0)
   ecs.on('display delta', (id, dt) => {
     worldcamera.getWorldQuaternion(axiscamera.quaternion)
     axiscamera.position.set(0, 0, 1)
     axiscamera.position.applyQuaternion(axiscamera.quaternion)
     renderer.clear(true, true, true)
     renderer.setViewport(0, 0, canvas.width, canvas.height)
-    renderer.render(world, worldcamera)
+    renderer.render(worldscene, worldcamera)
     renderer.clear(false, true, false)
     renderer.setViewport(10, canvas.height - 60, 50, 50)
     renderer.render(axisscene, axiscamera)
