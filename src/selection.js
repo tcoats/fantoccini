@@ -7,7 +7,11 @@ inject('pod', () => {
 
   let worldscene = null
   let worldcamera = null
-  ecs.on('load world scene', (id, scene) => worldscene = scene)
+  let selectedGroup = new three.Group()
+  ecs.on('load world scene', (id, scene) => {
+    worldscene = scene
+    worldscene.add(selectedGroup)
+  })
   ecs.on('load world camera', (id, camera) => worldcamera = camera)
 
   const entities = {}
@@ -59,6 +63,8 @@ inject('pod', () => {
   ecs.on('tool select', (id, tool) => currentTool = tool.current)
   ecs.on('remove selection', (id) => {
     worldscene.remove(selected[id].mesh)
+    selectedGroup.remove(selected[id].entity.mesh)
+    worldscene.add(selected[id].entity.mesh)
     delete selected[id]
     ecs.emit('selection removed', id)
   })
@@ -72,6 +78,8 @@ inject('pod', () => {
     // selection.mesh.layers.set(1)
     selected[selection.id] = selection
     worldscene.add(selection.mesh)
+    worldscene.remove(entity.mesh)
+    selectedGroup.add(entity.mesh)
     ecs.emit('selection added', selection.id, selection)
   })
   ecs.on('pointer click', (id, e) => {

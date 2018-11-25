@@ -47216,8 +47216,10 @@ inject('pod', function () {
   var crosshair = new three.Vector2(0, 0);
   var worldscene = null;
   var worldcamera = null;
+  var selectedGroup = new three.Group();
   ecs.on('load world scene', function (id, scene) {
-    return worldscene = scene;
+    worldscene = scene;
+    worldscene.add(selectedGroup);
   });
   ecs.on('load world camera', function (id, camera) {
     return worldcamera = camera;
@@ -47302,6 +47304,8 @@ inject('pod', function () {
   });
   ecs.on('remove selection', function (id) {
     worldscene.remove(selected[id].mesh);
+    selectedGroup.remove(selected[id].entity.mesh);
+    worldscene.add(selected[id].entity.mesh);
     delete selected[id];
     ecs.emit('selection removed', id);
   });
@@ -47318,6 +47322,8 @@ inject('pod', function () {
 
     selected[selection.id] = selection;
     worldscene.add(selection.mesh);
+    worldscene.remove(entity.mesh);
+    selectedGroup.add(entity.mesh);
     ecs.emit('selection added', selection.id, selection);
   });
   ecs.on('pointer click', function (id, e) {
