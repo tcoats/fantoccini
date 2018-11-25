@@ -7,12 +7,16 @@ inject('pod', () => {
 
   let worldscene = null
   let worldcamera = null
-  let selectedGroup = new three.Group()
+  let selectionGroup = new three.Group()
   ecs.on('load world scene', (id, scene) => {
     worldscene = scene
-    worldscene.add(selectedGroup)
+    worldscene.add(selectionGroup)
   })
   ecs.on('load world camera', (id, camera) => worldcamera = camera)
+
+  ecs.on('load', () => {
+    ecs.emit('load selection group', null, selectionGroup)
+  })
 
   const entities = {}
   ecs.on('load box', (id, box) => entities[id] = box)
@@ -21,6 +25,7 @@ inject('pod', () => {
   })
 
   let spotlight = null
+  const layersToSpotlight = new three.Layers()
   ecs.on('clear spotlight', () => {
     worldscene.remove(spotlight.mesh)
     spotlight = null
@@ -32,7 +37,7 @@ inject('pod', () => {
       const ecsid = intersect.object.ecsid
       if (ecsid && entities[ecsid]) {
         const e = entities[ecsid]
-        if (e.selectable === false) continue
+        if (!e.mesh.layers.test(layersToSpotlight)) continue
         entity = e
         break
       }
@@ -63,7 +68,7 @@ inject('pod', () => {
   ecs.on('tool select', (id, tool) => currentTool = tool.current)
   ecs.on('remove selection', (id) => {
     worldscene.remove(selected[id].mesh)
-    selectedGroup.remove(selected[id].entity.mesh)
+    selectionGroup.remove(selected[id].entity.mesh)
     worldscene.add(selected[id].entity.mesh)
     delete selected[id]
     ecs.emit('selection removed', id)
@@ -79,7 +84,7 @@ inject('pod', () => {
     selected[selection.id] = selection
     worldscene.add(selection.mesh)
     worldscene.remove(entity.mesh)
-    selectedGroup.add(entity.mesh)
+    selectionGroup.add(entity.mesh)
     ecs.emit('selection added', selection.id, selection)
   })
   ecs.on('pointer click', (id, e) => {
@@ -95,11 +100,16 @@ inject('pod', () => {
     if (spotlight && spotlight.id == id) ecs.emit('spotlight clear')
   })
 
+  let isdragging = false
+  ecs.on('dragging', () => isdragging = true)
+  ecs.on('dragging finished', () => isdragging = false)
   const raycaster = new three.Raycaster()
   ecs.on('physics to display delta', (id, dt) => {
-    raycaster.setFromCamera(crosshair, worldcamera)
-    setSpotlight(raycaster.intersectObjects(
-      Object.values(entities).map(e => e.mesh)))
+    if (!isdragging) {
+      raycaster.setFromCamera(crosshair, worldcamera)
+      setSpotlight(raycaster.intersectObjects(
+        Object.values(entities).map(e => e.mesh)))
+    }
     if (spotlight) {
       spotlight.mesh.position.copy(spotlight.entity.mesh.position)
       spotlight.mesh.quaternion.copy(spotlight.entity.mesh.quaternion)

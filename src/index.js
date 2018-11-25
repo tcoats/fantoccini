@@ -4,8 +4,8 @@ if (!inject.oneornone('ecs')) {
   inject('ecs', ecs)
 
   require('./physics')
-  require('./display')
   require('./selection')
+  require('./display')
   require('./controls')
   require('./constraints')
   require('./drag')

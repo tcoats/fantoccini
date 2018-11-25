@@ -47091,7 +47091,172 @@ exports.SceneUtils = SceneUtils;
 function LensFlare() {
   console.error('THREE.LensFlare has been moved to /examples/js/objects/Lensflare.js');
 }
-},{}],"src/display.js":[function(require,module,exports) {
+},{}],"src/selection.js":[function(require,module,exports) {
+var inject = require('injectinto');
+
+inject('pod', function () {
+  var ecs = inject.one('ecs');
+
+  var three = require('three');
+
+  var crosshair = new three.Vector2(0, 0);
+  var worldscene = null;
+  var worldcamera = null;
+  var selectionGroup = new three.Group();
+  ecs.on('load world scene', function (id, scene) {
+    worldscene = scene;
+    worldscene.add(selectionGroup);
+  });
+  ecs.on('load world camera', function (id, camera) {
+    return worldcamera = camera;
+  });
+  ecs.on('load', function () {
+    ecs.emit('load selection group', null, selectionGroup);
+  });
+  var entities = {};
+  ecs.on('load box', function (id, box) {
+    return entities[id] = box;
+  });
+  ecs.on('delete', function (id) {
+    if (entities[id]) delete entities[id];
+  });
+  var spotlight = null;
+  var layersToSpotlight = new three.Layers();
+  ecs.on('clear spotlight', function () {
+    worldscene.remove(spotlight.mesh);
+    spotlight = null;
+    ecs.emit('spotlight clear');
+  });
+
+  var setSpotlight = function setSpotlight(intersects) {
+    var entity = null;
+    var _iteratorNormalCompletion = true;
+    var _didIteratorError = false;
+    var _iteratorError = undefined;
+
+    try {
+      for (var _iterator = intersects[Symbol.iterator](), _step; !(_iteratorNormalCompletion = (_step = _iterator.next()).done); _iteratorNormalCompletion = true) {
+        var intersect = _step.value;
+        var ecsid = intersect.object.ecsid;
+
+        if (ecsid && entities[ecsid]) {
+          var e = entities[ecsid];
+          if (!e.mesh.layers.test(layersToSpotlight)) continue;
+          entity = e;
+          break;
+        }
+      }
+    } catch (err) {
+      _didIteratorError = true;
+      _iteratorError = err;
+    } finally {
+      try {
+        if (!_iteratorNormalCompletion && _iterator.return != null) {
+          _iterator.return();
+        }
+      } finally {
+        if (_didIteratorError) {
+          throw _iteratorError;
+        }
+      }
+    }
+
+    if (!entity) {
+      if (spotlight) ecs.emit('clear spotlight');
+      return;
+    }
+
+    if (spotlight && entity.id != spotlight.id) {
+      worldscene.remove(spotlight.mesh);
+      spotlight = null;
+    }
+
+    if (!spotlight) {
+      spotlight = {
+        id: entity.id,
+        entity: entity
+      };
+      spotlight.geometry = new three.EdgesGeometry(entity.geometry);
+      spotlight.mesh = new three.LineSegments(spotlight.geometry);
+      spotlight.mesh.material.depthTest = false;
+      spotlight.mesh.material.color = new three.Color(0xffffff);
+      spotlight.mesh.material.linewidth = 3;
+      spotlight.mesh.layers.set(1);
+      worldscene.add(spotlight.mesh);
+      ecs.emit('spotlight set', entity.id, spotlight);
+    }
+  };
+
+  var selected = {};
+  var currentTool = null;
+  ecs.on('tool select', function (id, tool) {
+    return currentTool = tool.current;
+  });
+  ecs.on('remove selection', function (id) {
+    worldscene.remove(selected[id].mesh);
+    selectionGroup.remove(selected[id].entity.mesh);
+    worldscene.add(selected[id].entity.mesh);
+    delete selected[id];
+    ecs.emit('selection removed', id);
+  });
+  ecs.on('add selection', function (id, entity) {
+    var selection = {
+      id: id,
+      entity: entity
+    };
+    selection.geometry = new three.EdgesGeometry(selection.entity.geometry);
+    selection.mesh = new three.LineSegments(selection.geometry);
+    selection.mesh.material.depthTest = false;
+    selection.mesh.material.color = new three.Color(0xffffff);
+    selection.mesh.material.linewidth = 1; // selection.mesh.layers.set(1)
+
+    selected[selection.id] = selection;
+    worldscene.add(selection.mesh);
+    worldscene.remove(entity.mesh);
+    selectionGroup.add(entity.mesh);
+    ecs.emit('selection added', selection.id, selection);
+  });
+  ecs.on('pointer click', function (id, e) {
+    if (currentTool != 'select') return;
+    if (!spotlight) return;
+    if (selected[spotlight.id]) return ecs.emit('remove selection', spotlight.id);
+    ecs.emit('add selection', spotlight.id, spotlight.entity);
+  });
+  ecs.on('delete', function (id) {
+    if (selected[id]) ecs.emit('remove selection', id);
+    if (spotlight && spotlight.id == id) ecs.emit('spotlight clear');
+  });
+  var isdragging = false;
+  ecs.on('dragging', function () {
+    return isdragging = true;
+  });
+  ecs.on('dragging finished', function () {
+    return isdragging = false;
+  });
+  var raycaster = new three.Raycaster();
+  ecs.on('physics to display delta', function (id, dt) {
+    if (!isdragging) {
+      raycaster.setFromCamera(crosshair, worldcamera);
+      setSpotlight(raycaster.intersectObjects(Object.values(entities).map(function (e) {
+        return e.mesh;
+      })));
+    }
+
+    if (spotlight) {
+      spotlight.mesh.position.copy(spotlight.entity.mesh.position);
+      spotlight.mesh.quaternion.copy(spotlight.entity.mesh.quaternion);
+    }
+
+    var _arr = Object.values(selected);
+
+    for (var _i = 0; _i < _arr.length; _i++) {
+      var selection = _arr[_i];
+      selection.mesh.position.copy(selection.entity.mesh.position);
+      selection.mesh.quaternion.copy(selection.entity.mesh.quaternion);
+    }
+  });
+});
+},{"injectinto":"node_modules/injectinto/inject.js","three":"node_modules/three/build/three.module.js"}],"src/display.js":[function(require,module,exports) {
 // https://threejs.org/
 // https://threejs.org/docs/
 var inject = require('injectinto');
@@ -47203,158 +47368,6 @@ inject('pod', function () {
     renderer.clear(false, true, false);
     renderer.setViewport(10, canvas.height - 60, 50, 50);
     renderer.render(axisscene, axiscamera);
-  });
-});
-},{"injectinto":"node_modules/injectinto/inject.js","three":"node_modules/three/build/three.module.js"}],"src/selection.js":[function(require,module,exports) {
-var inject = require('injectinto');
-
-inject('pod', function () {
-  var ecs = inject.one('ecs');
-
-  var three = require('three');
-
-  var crosshair = new three.Vector2(0, 0);
-  var worldscene = null;
-  var worldcamera = null;
-  var selectedGroup = new three.Group();
-  ecs.on('load world scene', function (id, scene) {
-    worldscene = scene;
-    worldscene.add(selectedGroup);
-  });
-  ecs.on('load world camera', function (id, camera) {
-    return worldcamera = camera;
-  });
-  var entities = {};
-  ecs.on('load box', function (id, box) {
-    return entities[id] = box;
-  });
-  ecs.on('delete', function (id) {
-    if (entities[id]) delete entities[id];
-  });
-  var spotlight = null;
-  ecs.on('clear spotlight', function () {
-    worldscene.remove(spotlight.mesh);
-    spotlight = null;
-    ecs.emit('spotlight clear');
-  });
-
-  var setSpotlight = function setSpotlight(intersects) {
-    var entity = null;
-    var _iteratorNormalCompletion = true;
-    var _didIteratorError = false;
-    var _iteratorError = undefined;
-
-    try {
-      for (var _iterator = intersects[Symbol.iterator](), _step; !(_iteratorNormalCompletion = (_step = _iterator.next()).done); _iteratorNormalCompletion = true) {
-        var intersect = _step.value;
-        var ecsid = intersect.object.ecsid;
-
-        if (ecsid && entities[ecsid]) {
-          var e = entities[ecsid];
-          if (e.selectable === false) continue;
-          entity = e;
-          break;
-        }
-      }
-    } catch (err) {
-      _didIteratorError = true;
-      _iteratorError = err;
-    } finally {
-      try {
-        if (!_iteratorNormalCompletion && _iterator.return != null) {
-          _iterator.return();
-        }
-      } finally {
-        if (_didIteratorError) {
-          throw _iteratorError;
-        }
-      }
-    }
-
-    if (!entity) {
-      if (spotlight) ecs.emit('clear spotlight');
-      return;
-    }
-
-    if (spotlight && entity.id != spotlight.id) {
-      worldscene.remove(spotlight.mesh);
-      spotlight = null;
-    }
-
-    if (!spotlight) {
-      spotlight = {
-        id: entity.id,
-        entity: entity
-      };
-      spotlight.geometry = new three.EdgesGeometry(entity.geometry);
-      spotlight.mesh = new three.LineSegments(spotlight.geometry);
-      spotlight.mesh.material.depthTest = false;
-      spotlight.mesh.material.color = new three.Color(0xffffff);
-      spotlight.mesh.material.linewidth = 3;
-      spotlight.mesh.layers.set(1);
-      worldscene.add(spotlight.mesh);
-      ecs.emit('spotlight set', entity.id, spotlight);
-    }
-  };
-
-  var selected = {};
-  var currentTool = null;
-  ecs.on('tool select', function (id, tool) {
-    return currentTool = tool.current;
-  });
-  ecs.on('remove selection', function (id) {
-    worldscene.remove(selected[id].mesh);
-    selectedGroup.remove(selected[id].entity.mesh);
-    worldscene.add(selected[id].entity.mesh);
-    delete selected[id];
-    ecs.emit('selection removed', id);
-  });
-  ecs.on('add selection', function (id, entity) {
-    var selection = {
-      id: id,
-      entity: entity
-    };
-    selection.geometry = new three.EdgesGeometry(selection.entity.geometry);
-    selection.mesh = new three.LineSegments(selection.geometry);
-    selection.mesh.material.depthTest = false;
-    selection.mesh.material.color = new three.Color(0xffffff);
-    selection.mesh.material.linewidth = 1; // selection.mesh.layers.set(1)
-
-    selected[selection.id] = selection;
-    worldscene.add(selection.mesh);
-    worldscene.remove(entity.mesh);
-    selectedGroup.add(entity.mesh);
-    ecs.emit('selection added', selection.id, selection);
-  });
-  ecs.on('pointer click', function (id, e) {
-    if (currentTool != 'select') return;
-    if (!spotlight) return;
-    if (selected[spotlight.id]) return ecs.emit('remove selection', spotlight.id);
-    ecs.emit('add selection', spotlight.id, spotlight.entity);
-  });
-  ecs.on('delete', function (id) {
-    if (selected[id]) ecs.emit('remove selection', id);
-    if (spotlight && spotlight.id == id) ecs.emit('spotlight clear');
-  });
-  var raycaster = new three.Raycaster();
-  ecs.on('physics to display delta', function (id, dt) {
-    raycaster.setFromCamera(crosshair, worldcamera);
-    setSpotlight(raycaster.intersectObjects(Object.values(entities).map(function (e) {
-      return e.mesh;
-    })));
-
-    if (spotlight) {
-      spotlight.mesh.position.copy(spotlight.entity.mesh.position);
-      spotlight.mesh.quaternion.copy(spotlight.entity.mesh.quaternion);
-    }
-
-    var _arr = Object.values(selected);
-
-    for (var _i = 0; _i < _arr.length; _i++) {
-      var selection = _arr[_i];
-      selection.mesh.position.copy(selection.entity.mesh.position);
-      selection.mesh.quaternion.copy(selection.entity.mesh.quaternion);
-    }
   });
 });
 },{"injectinto":"node_modules/injectinto/inject.js","three":"node_modules/three/build/three.module.js"}],"src/controls.js":[function(require,module,exports) {
@@ -49343,9 +49356,9 @@ if (!inject.oneornone('ecs')) {
 
   require('./physics');
 
-  require('./display');
-
   require('./selection');
+
+  require('./display');
 
   require('./controls');
 
@@ -49429,7 +49442,7 @@ if (!inject.oneornone('ecs')) {
     window.requestAnimationFrame(animate);
   });
 } else location.reload(true);
-},{"injectinto":"node_modules/injectinto/inject.js","./ecs":"src/ecs.js","./physics":"src/physics.js","./display":"src/display.js","./selection":"src/selection.js","./controls":"src/controls.js","./constraints":"src/constraints.js","./drag":"src/drag.js","./hotkeys":"src/hotkeys.js","./pointercapture":"src/pointercapture.js","./input":"src/input.js","./tools":"src/tools.js","./scripts":"src/scripts.js","./ui":"src/ui.js"}],"../../.config/yarn/global/node_modules/parcel-bundler/src/builtins/hmr-runtime.js":[function(require,module,exports) {
+},{"injectinto":"node_modules/injectinto/inject.js","./ecs":"src/ecs.js","./physics":"src/physics.js","./selection":"src/selection.js","./display":"src/display.js","./controls":"src/controls.js","./constraints":"src/constraints.js","./drag":"src/drag.js","./hotkeys":"src/hotkeys.js","./pointercapture":"src/pointercapture.js","./input":"src/input.js","./tools":"src/tools.js","./scripts":"src/scripts.js","./ui":"src/ui.js"}],"../../.config/yarn/global/node_modules/parcel-bundler/src/builtins/hmr-runtime.js":[function(require,module,exports) {
 var global = arguments[3];
 var OVERLAY_ID = '__parcel__error__overlay__';
 var OldModule = module.bundle.Module;
