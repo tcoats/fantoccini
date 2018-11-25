@@ -101,7 +101,7 @@ inject('pod', () => {
   })
 
   let isdragging = false
-  ecs.on('dragging', () => isdragging = true)
+  ecs.on('dragging started', () => isdragging = true)
   ecs.on('dragging finished', () => isdragging = false)
   const raycaster = new three.Raycaster()
   ecs.on('physics to display delta', (id, dt) => {

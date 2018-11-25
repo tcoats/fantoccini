@@ -47227,7 +47227,7 @@ inject('pod', function () {
     if (spotlight && spotlight.id == id) ecs.emit('spotlight clear');
   });
   var isdragging = false;
-  ecs.on('dragging', function () {
+  ecs.on('dragging started', function () {
     return isdragging = true;
   });
   ecs.on('dragging finished', function () {
@@ -47698,7 +47698,11 @@ inject('pod', function () {
   var onmove = function onmove(e) {
     if (!mouseIsDown) return;
     var drag = dragCalc();
-    if (mouseDownAt && (Date.now() - mouseDownAt > 200 || drag.deltaPosition.lengthSq() > 0.1 || drag.deltaQuaternion.lengthSq() > 0.1)) mouseDownAt = null;
+
+    if (mouseDownAt && (Date.now() - mouseDownAt > 200 || drag.deltaPosition.lengthSq() > 0.1 || drag.deltaQuaternion.lengthSq() > 0.1)) {
+      mouseDownAt = null;
+      ecs.emit('dragging started', null, drag);
+    }
   };
 
   ecs.on('load world camera', function (id, c) {
@@ -47719,7 +47723,11 @@ inject('pod', function () {
   });
   ecs.on('event delta', function (id, dt) {
     if (mouseIsDown) {
-      if (mouseDownAt && Date.now() - mouseDownAt > 200) mouseDownAt = null;
+      if (mouseDownAt && Date.now() - mouseDownAt > 200) {
+        mouseDownAt = null;
+        ecs.emit('dragging started', null, drag);
+      }
+
       if (!mouseDownAt) ecs.emit('dragging', null, dragCalc());
     }
   });

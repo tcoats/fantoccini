@@ -44,8 +44,10 @@ inject('pod', () => {
   const onmove = (e) => {
     if (!mouseIsDown) return
     const drag = dragCalc()
-    if (mouseDownAt && (Date.now() - mouseDownAt > 200 || drag.deltaPosition.lengthSq() > 0.1 || drag.deltaQuaternion.lengthSq() > 0.1))
+    if (mouseDownAt && (Date.now() - mouseDownAt > 200 || drag.deltaPosition.lengthSq() > 0.1 || drag.deltaQuaternion.lengthSq() > 0.1)) {
       mouseDownAt = null
+      ecs.emit('dragging started', null, drag)
+    }
   }
   ecs.on('load world camera', (id, c) => worldcamera = c)
   ecs.on('drag enabled', () => {
@@ -64,8 +66,10 @@ inject('pod', () => {
   })
   ecs.on('event delta', (id, dt) => {
     if (mouseIsDown) {
-      if (mouseDownAt && (Date.now() - mouseDownAt > 200))
+      if (mouseDownAt && (Date.now() - mouseDownAt > 200)) {
         mouseDownAt = null
+        ecs.emit('dragging started', null, drag)
+      }
       if (!mouseDownAt) ecs.emit('dragging', null, dragCalc())
     }
   })
