@@ -4,16 +4,17 @@ if (!inject.oneornone('ecs')) {
   inject('ecs', ecs)
 
   require('./physics')
-  require('./selection')
-  require('./display')
   require('./controls')
   require('./constraints')
-  require('./drag')
   require('./hotkeys')
   require('./pointercapture')
   require('./input')
   require('./tools')
+  require('./drag')
   require('./scripts')
+  require('./selection')
+  require('./move')
+  require('./display')
   require('./ui')
 
   for (let pod of inject.many('pod')) pod()
@@ -39,14 +40,16 @@ if (!inject.oneornone('ecs')) {
 
   ecs.on('start', () => {
     let last = Date.now()
+    let frame = 0
     const animate = () => {
+      frame++
       window.requestAnimationFrame(animate)
       const current = Date.now()
       const dt = current - last
-      ecs.emit('event delta', null, dt)
-      ecs.emit('physics delta', null, dt)
-      ecs.emit('physics to display delta', null, dt)
-      ecs.emit('display delta', null, dt)
+      ecs.emit('event delta', frame, dt)
+      ecs.emit('physics delta', frame, dt)
+      ecs.emit('physics to display delta', frame, dt)
+      ecs.emit('display delta', frame, dt)
       last = current
     }
     window.requestAnimationFrame(animate)

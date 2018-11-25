@@ -47091,286 +47091,7 @@ exports.SceneUtils = SceneUtils;
 function LensFlare() {
   console.error('THREE.LensFlare has been moved to /examples/js/objects/Lensflare.js');
 }
-},{}],"src/selection.js":[function(require,module,exports) {
-var inject = require('injectinto');
-
-inject('pod', function () {
-  var ecs = inject.one('ecs');
-
-  var three = require('three');
-
-  var crosshair = new three.Vector2(0, 0);
-  var worldscene = null;
-  var worldcamera = null;
-  var selectionGroup = new three.Group();
-  ecs.on('load world scene', function (id, scene) {
-    worldscene = scene;
-    worldscene.add(selectionGroup);
-  });
-  ecs.on('load world camera', function (id, camera) {
-    return worldcamera = camera;
-  });
-  ecs.on('load', function () {
-    ecs.emit('load selection group', null, selectionGroup);
-  });
-  var entities = {};
-  ecs.on('load box', function (id, box) {
-    return entities[id] = box;
-  });
-  ecs.on('delete', function (id) {
-    if (entities[id]) delete entities[id];
-  });
-  var spotlight = null;
-  var layersToSpotlight = new three.Layers();
-  ecs.on('clear spotlight', function () {
-    worldscene.remove(spotlight.mesh);
-    spotlight = null;
-    ecs.emit('spotlight clear');
-  });
-
-  var setSpotlight = function setSpotlight(intersects) {
-    var entity = null;
-    var _iteratorNormalCompletion = true;
-    var _didIteratorError = false;
-    var _iteratorError = undefined;
-
-    try {
-      for (var _iterator = intersects[Symbol.iterator](), _step; !(_iteratorNormalCompletion = (_step = _iterator.next()).done); _iteratorNormalCompletion = true) {
-        var intersect = _step.value;
-        var ecsid = intersect.object.ecsid;
-
-        if (ecsid && entities[ecsid]) {
-          var e = entities[ecsid];
-          if (!e.mesh.layers.test(layersToSpotlight)) continue;
-          entity = e;
-          break;
-        }
-      }
-    } catch (err) {
-      _didIteratorError = true;
-      _iteratorError = err;
-    } finally {
-      try {
-        if (!_iteratorNormalCompletion && _iterator.return != null) {
-          _iterator.return();
-        }
-      } finally {
-        if (_didIteratorError) {
-          throw _iteratorError;
-        }
-      }
-    }
-
-    if (!entity) {
-      if (spotlight) ecs.emit('clear spotlight');
-      return;
-    }
-
-    if (spotlight && entity.id != spotlight.id) {
-      worldscene.remove(spotlight.mesh);
-      spotlight = null;
-    }
-
-    if (!spotlight) {
-      spotlight = {
-        id: entity.id,
-        entity: entity
-      };
-      spotlight.geometry = new three.EdgesGeometry(entity.geometry);
-      spotlight.mesh = new three.LineSegments(spotlight.geometry);
-      spotlight.mesh.material.depthTest = false;
-      spotlight.mesh.material.color = new three.Color(0xffffff);
-      spotlight.mesh.material.linewidth = 3;
-      spotlight.mesh.layers.set(1);
-      worldscene.add(spotlight.mesh);
-      ecs.emit('spotlight set', entity.id, spotlight);
-    }
-  };
-
-  var selected = {};
-  var currentTool = null;
-  ecs.on('tool select', function (id, tool) {
-    return currentTool = tool.current;
-  });
-  ecs.on('remove selection', function (id) {
-    worldscene.remove(selected[id].mesh);
-    selectionGroup.remove(selected[id].entity.mesh);
-    worldscene.add(selected[id].entity.mesh);
-    delete selected[id];
-    ecs.emit('selection removed', id);
-  });
-  ecs.on('add selection', function (id, entity) {
-    var selection = {
-      id: id,
-      entity: entity
-    };
-    selection.geometry = new three.EdgesGeometry(selection.entity.geometry);
-    selection.mesh = new three.LineSegments(selection.geometry);
-    selection.mesh.material.depthTest = false;
-    selection.mesh.material.color = new three.Color(0xffffff);
-    selection.mesh.material.linewidth = 1; // selection.mesh.layers.set(1)
-
-    selected[selection.id] = selection;
-    worldscene.add(selection.mesh);
-    worldscene.remove(entity.mesh);
-    selectionGroup.add(entity.mesh);
-    ecs.emit('selection added', selection.id, selection);
-  });
-  ecs.on('pointer click', function (id, e) {
-    if (currentTool != 'select') return;
-    if (!spotlight) return;
-    if (selected[spotlight.id]) return ecs.emit('remove selection', spotlight.id);
-    ecs.emit('add selection', spotlight.id, spotlight.entity);
-  });
-  ecs.on('delete', function (id) {
-    if (selected[id]) ecs.emit('remove selection', id);
-    if (spotlight && spotlight.id == id) ecs.emit('spotlight clear');
-  });
-  var isdragging = false;
-  ecs.on('dragging started', function () {
-    return isdragging = true;
-  });
-  ecs.on('dragging finished', function () {
-    return isdragging = false;
-  });
-  var raycaster = new three.Raycaster();
-  ecs.on('physics to display delta', function (id, dt) {
-    if (!isdragging) {
-      raycaster.setFromCamera(crosshair, worldcamera);
-      setSpotlight(raycaster.intersectObjects(Object.values(entities).map(function (e) {
-        return e.mesh;
-      })));
-    }
-
-    if (spotlight) {
-      spotlight.mesh.position.copy(spotlight.entity.mesh.position);
-      spotlight.mesh.quaternion.copy(spotlight.entity.mesh.quaternion);
-    }
-
-    var _arr = Object.values(selected);
-
-    for (var _i = 0; _i < _arr.length; _i++) {
-      var selection = _arr[_i];
-      selection.mesh.position.copy(selection.entity.mesh.position);
-      selection.mesh.quaternion.copy(selection.entity.mesh.quaternion);
-    }
-  });
-});
-},{"injectinto":"node_modules/injectinto/inject.js","three":"node_modules/three/build/three.module.js"}],"src/display.js":[function(require,module,exports) {
-// https://threejs.org/
-// https://threejs.org/docs/
-var inject = require('injectinto');
-
-inject('pod', function () {
-  var ecs = inject.one('ecs');
-
-  var three = require('three');
-
-  var canvas = document.getElementById('canvas');
-  var entities = {};
-  var worldscene = null;
-  var renderer = null;
-  var worldcamera = null;
-  var axiscamera = null;
-  var axisscene = null;
-  var groundMaterial = null;
-  var boxMaterial = null;
-  ecs.on('init', function () {
-    worldcamera = new three.PerspectiveCamera(75, canvas.width / canvas.height, 0.1, 1000);
-    worldscene = new three.Scene();
-    groundMaterial = new three.MeshLambertMaterial({
-      color: 0xFD9148
-    });
-    boxMaterial = new three.MeshLambertMaterial({
-      color: 0x6297D0
-    }); // worldscene.fog = new three.Fog(0xffffff, 0, 200)
-    // Three Point Lighting
-
-    var keyLight = new three.DirectionalLight(0xffffff, 1);
-    keyLight.position.set(-1, 1, 1);
-    worldscene.add(keyLight);
-    var fillLight = new three.DirectionalLight(0xffffff, 0.5);
-    fillLight.position.set(1, 1, -1);
-    worldscene.add(fillLight);
-    var backLight = new three.AmbientLight(0xffffff, 0.2);
-    worldscene.add(backLight);
-    renderer = new three.WebGLRenderer({
-      canvas: canvas
-    });
-    renderer.shadowMap.enabled = true;
-    renderer.shadowMapSoft = true;
-    renderer.setSize(canvas.width, canvas.height, false);
-    renderer.setClearColor(0xffffff, 1);
-    renderer.autoClear = false;
-    axiscamera = new three.OrthographicCamera(-1, 1, 1, -1, 0, 2);
-    axisscene = new three.Scene();
-    axisscene.add(new three.AmbientLight(0x111111));
-    axisscene.add(new three.AxesHelper(1));
-  });
-  ecs.on('load', function () {
-    ecs.emit('load world camera', null, worldcamera);
-    ecs.emit('load world scene', null, worldscene);
-  });
-  ecs.on('load ground', function (id, ground) {
-    ground.geometry = new three.PlaneGeometry(3000, 3000, 50, 50);
-    ground.geometry.applyMatrix(new three.Matrix4().makeRotationX(-Math.PI / 2));
-    ground.mesh = new three.Mesh(ground.geometry, groundMaterial);
-    ground.mesh.castShadow = true;
-    ground.mesh.receiveShadow = true;
-    ground.mesh.ecsid = id;
-    ground.selectable = false;
-    worldscene.add(ground.mesh);
-    entities[id] = ground;
-  });
-  ecs.on('load camera', function (id, camera) {
-    camera.body = new three.Object3D();
-    camera.body.ecsid = id;
-    camera.selectable = false;
-    worldscene.add(camera.body);
-    camera.head = new three.Object3D();
-    camera.head.add(worldcamera);
-    camera.body.position.y = 2;
-    camera.body.add(camera.head);
-    entities[id] = camera;
-  });
-  var menuopen = false;
-  ecs.on('menu open', function () {
-    worldcamera.layers.enable(1);
-    menuopen = true;
-  });
-  ecs.on('menu close', function () {
-    worldcamera.layers.disable(1);
-    menuopen = false;
-  });
-  ecs.on('load box', function (id, box) {
-    var halfExtents = box.halfExtents ? box.halfExtents : new three.Vector3(1, 1, 1);
-    box.geometry = new three.BoxGeometry(halfExtents.x * 2, halfExtents.y * 2, halfExtents.z * 2);
-    box.mesh = new three.Mesh(box.geometry, boxMaterial);
-    box.mesh.ecsid = id;
-    worldscene.add(box.mesh);
-    box.mesh.castShadow = true;
-    box.mesh.receiveShadow = true;
-    entities[id] = box;
-  });
-  ecs.on('delete', function (id) {
-    if (entities[id]) {
-      if (entities[id].mesh) worldscene.remove(entities[id].mesh);
-      delete entities[id];
-    }
-  });
-  ecs.on('display delta', function (id, dt) {
-    worldcamera.getWorldQuaternion(axiscamera.quaternion);
-    axiscamera.position.set(0, 0, 1);
-    axiscamera.position.applyQuaternion(axiscamera.quaternion);
-    renderer.clear(true, true, true);
-    renderer.setViewport(0, 0, canvas.width, canvas.height);
-    renderer.render(worldscene, worldcamera);
-    renderer.clear(false, true, false);
-    renderer.setViewport(10, canvas.height - 60, 50, 50);
-    renderer.render(axisscene, axiscamera);
-  });
-});
-},{"injectinto":"node_modules/injectinto/inject.js","three":"node_modules/three/build/three.module.js"}],"src/controls.js":[function(require,module,exports) {
+},{}],"src/controls.js":[function(require,module,exports) {
 var inject = require('injectinto');
 
 inject('pod', function () {
@@ -47643,96 +47364,7 @@ inject('pod', function () {
     document.removeEventListener('keyup', onkeyup);
   });
 });
-},{"injectinto":"node_modules/injectinto/inject.js"}],"src/drag.js":[function(require,module,exports) {
-var inject = require('injectinto');
-
-inject('pod', function () {
-  var ecs = inject.one('ecs');
-
-  var three = require('three');
-
-  var dragStartPosition = new three.Vector3();
-  var dragStartQuaternion = new three.Quaternion();
-  var mouseIsDown = false;
-  var mouseDownAt = null;
-  var worldcamera = null;
-  var dragPosition = new three.Vector3();
-  var dragQuaternion = new three.Quaternion();
-  var dragDeltaPosition = new three.Vector3();
-  var dragDeltaQuaternion = new three.Quaternion();
-
-  var dragCalc = function dragCalc() {
-    worldcamera.getWorldPosition(dragPosition);
-    worldcamera.getWorldQuaternion(dragQuaternion);
-    dragDeltaPosition.copy(dragPosition).sub(dragStartPosition);
-    dragDeltaQuaternion.copy(dragStartQuaternion).inverse().multiply(dragQuaternion);
-    return {
-      startPosition: dragStartPosition,
-      startQuaternion: dragStartQuaternion,
-      deltaPosition: dragDeltaPosition,
-      deltaQuaternion: dragDeltaQuaternion,
-      position: dragPosition,
-      quaternion: dragQuaternion
-    };
-  };
-
-  var onmousedown = function onmousedown(e) {
-    mouseIsDown = true;
-    mouseDownAt = Date.now();
-    worldcamera.getWorldPosition(dragStartPosition);
-    worldcamera.getWorldQuaternion(dragStartQuaternion);
-  };
-
-  var onmouseup = function onmouseup(e) {
-    mouseIsDown = false;
-
-    if (mouseDownAt && Date.now() - mouseDownAt < 200) {
-      mouseDownAt = null;
-      ecs.emit('pointer click');
-      return;
-    }
-
-    ecs.emit('dragging finished', null, dragCalc());
-  };
-
-  var onmove = function onmove(e) {
-    if (!mouseIsDown) return;
-    var drag = dragCalc();
-
-    if (mouseDownAt && (Date.now() - mouseDownAt > 200 || drag.deltaPosition.lengthSq() > 0.1 || drag.deltaQuaternion.lengthSq() > 0.1)) {
-      mouseDownAt = null;
-      ecs.emit('dragging started', null, drag);
-    }
-  };
-
-  ecs.on('load world camera', function (id, c) {
-    return worldcamera = c;
-  });
-  ecs.on('drag enabled', function () {
-    document.addEventListener('mousedown', onmousedown);
-    document.addEventListener('mouseup', onmouseup);
-    document.addEventListener('mousemove', onmove);
-  });
-  ecs.on('drag disabled', function () {
-    if (mouseIsDown && !mouseDownAt) ecs.emit('dragging finished', null, dragCalc());
-    mouseIsDown = false;
-    mouseDownAt = null;
-    document.removeEventListener('mousedown', onmousedown);
-    document.removeEventListener('mouseup', onmouseup);
-    document.removeEventListener('mousemove', onmove);
-  });
-  ecs.on('event delta', function (id, dt) {
-    if (mouseIsDown) {
-      if (mouseDownAt && Date.now() - mouseDownAt > 200) {
-        mouseDownAt = null;
-        ecs.emit('dragging started', null, drag);
-      }
-
-      if (!mouseDownAt) ecs.emit('dragging', null, dragCalc());
-    }
-  });
-});
-},{"injectinto":"node_modules/injectinto/inject.js","three":"node_modules/three/build/three.module.js"}],"src/hotkeys.js":[function(require,module,exports) {
+},{"injectinto":"node_modules/injectinto/inject.js"}],"src/hotkeys.js":[function(require,module,exports) {
 var inject = require('injectinto');
 
 inject('pod', function () {
@@ -48016,7 +47648,99 @@ inject('pod', function () {
     document.removeEventListener('keyup', onkeyup);
   });
 });
-},{"injectinto":"node_modules/injectinto/inject.js"}],"src/scripts.js":[function(require,module,exports) {
+},{"injectinto":"node_modules/injectinto/inject.js"}],"src/drag.js":[function(require,module,exports) {
+var inject = require('injectinto');
+
+inject('pod', function () {
+  var ecs = inject.one('ecs');
+
+  var three = require('three');
+
+  var dragStartPosition = new three.Vector3();
+  var dragStartQuaternion = new three.Quaternion();
+  var mouseIsDown = false;
+  var mouseDownAt = null;
+  var worldcamera = null;
+  var dragPosition = new three.Vector3();
+  var dragQuaternion = new three.Quaternion();
+  var dragDeltaPosition = new three.Vector3();
+  var dragDeltaQuaternion = new three.Quaternion();
+
+  var dragCalc = function dragCalc() {
+    worldcamera.getWorldPosition(dragPosition);
+    worldcamera.getWorldQuaternion(dragQuaternion);
+    dragDeltaPosition.copy(dragPosition).sub(dragStartPosition);
+    dragDeltaQuaternion.copy(dragStartQuaternion).inverse().multiply(dragQuaternion);
+    return {
+      startPosition: dragStartPosition,
+      startQuaternion: dragStartQuaternion,
+      deltaPosition: dragDeltaPosition,
+      deltaQuaternion: dragDeltaQuaternion,
+      position: dragPosition,
+      quaternion: dragQuaternion
+    };
+  };
+
+  var onmousedown = function onmousedown(e) {
+    mouseIsDown = true;
+    mouseDownAt = Date.now();
+    worldcamera.getWorldPosition(dragStartPosition);
+    worldcamera.getWorldQuaternion(dragStartQuaternion);
+  };
+
+  var onmouseup = function onmouseup(e) {
+    mouseIsDown = false;
+
+    if (mouseDownAt && Date.now() - mouseDownAt < 200) {
+      mouseDownAt = null;
+      ecs.emit('pointer click');
+      return;
+    }
+
+    ecs.emit('dragging finished', null, dragCalc());
+  };
+
+  var onmove = function onmove(e) {
+    if (!mouseIsDown) return;
+    var drag = dragCalc();
+
+    if (mouseDownAt && (Date.now() - mouseDownAt > 200 || drag.deltaPosition.lengthSq() > 0.1 || drag.deltaQuaternion.lengthSq() > 0.1)) {
+      mouseDownAt = null;
+      ecs.emit('dragging started', null, drag);
+    }
+  };
+
+  ecs.on('load world camera', function (id, c) {
+    return worldcamera = c;
+  });
+  ecs.on('drag enabled', function () {
+    document.addEventListener('mousedown', onmousedown);
+    document.addEventListener('mouseup', onmouseup);
+    document.addEventListener('mousemove', onmove);
+  });
+  ecs.on('drag disabled', function () {
+    if (mouseIsDown && !mouseDownAt) ecs.emit('dragging finished', null, dragCalc());
+    mouseIsDown = false;
+    mouseDownAt = null;
+    document.removeEventListener('mousedown', onmousedown);
+    document.removeEventListener('mouseup', onmouseup);
+    document.removeEventListener('mousemove', onmove);
+  });
+  ecs.on('event delta', function (id, dt) {
+    if (mouseIsDown) {
+      if (mouseDownAt && Date.now() - mouseDownAt > 200) {
+        mouseDownAt = null;
+        ecs.emit('dragging started', null, dragCalc());
+      }
+
+      if (!mouseDownAt) {
+        // if (id % 60 == 0) console.log('dragging')
+        ecs.emit('dragging', null, dragCalc());
+      }
+    }
+  });
+});
+},{"injectinto":"node_modules/injectinto/inject.js","three":"node_modules/three/build/three.module.js"}],"src/scripts.js":[function(require,module,exports) {
 var inject = require('injectinto');
 
 inject('pod', function () {
@@ -48081,7 +47805,340 @@ inject('pod', function () {
     }
   });
 });
-},{"injectinto":"node_modules/injectinto/inject.js","three":"node_modules/three/build/three.module.js","cannon":"node_modules/cannon/build/cannon.js"}],"../../.config/yarn/global/node_modules/parcel-bundler/src/builtins/bundle-url.js":[function(require,module,exports) {
+},{"injectinto":"node_modules/injectinto/inject.js","three":"node_modules/three/build/three.module.js","cannon":"node_modules/cannon/build/cannon.js"}],"src/selection.js":[function(require,module,exports) {
+var inject = require('injectinto');
+
+inject('pod', function () {
+  var ecs = inject.one('ecs');
+
+  var three = require('three');
+
+  var crosshair = new three.Vector2(0, 0);
+  var worldscene = null;
+  var worldcamera = null;
+  var selectionGroup = new three.Group();
+  ecs.on('load world scene', function (id, scene) {
+    worldscene = scene;
+    worldscene.add(selectionGroup);
+  });
+  ecs.on('load world camera', function (id, camera) {
+    return worldcamera = camera;
+  });
+  ecs.on('load', function () {
+    ecs.emit('load selection group', null, selectionGroup);
+  });
+  var entities = {};
+  ecs.on('load box', function (id, box) {
+    return entities[id] = box;
+  });
+  ecs.on('delete', function (id) {
+    if (entities[id]) delete entities[id];
+  });
+  var spotlight = null;
+  var layersToSpotlight = new three.Layers();
+  ecs.on('clear spotlight', function () {
+    worldscene.remove(spotlight.mesh);
+    spotlight = null;
+    ecs.emit('spotlight clear');
+  });
+
+  var setSpotlight = function setSpotlight(intersects) {
+    var entity = null;
+    var _iteratorNormalCompletion = true;
+    var _didIteratorError = false;
+    var _iteratorError = undefined;
+
+    try {
+      for (var _iterator = intersects[Symbol.iterator](), _step; !(_iteratorNormalCompletion = (_step = _iterator.next()).done); _iteratorNormalCompletion = true) {
+        var intersect = _step.value;
+        var ecsid = intersect.object.ecsid;
+
+        if (ecsid && entities[ecsid]) {
+          var e = entities[ecsid];
+          if (!e.mesh.layers.test(layersToSpotlight)) continue;
+          entity = e;
+          break;
+        }
+      }
+    } catch (err) {
+      _didIteratorError = true;
+      _iteratorError = err;
+    } finally {
+      try {
+        if (!_iteratorNormalCompletion && _iterator.return != null) {
+          _iterator.return();
+        }
+      } finally {
+        if (_didIteratorError) {
+          throw _iteratorError;
+        }
+      }
+    }
+
+    if (!entity) {
+      if (spotlight) ecs.emit('clear spotlight');
+      return;
+    }
+
+    if (spotlight && entity.id != spotlight.id) {
+      worldscene.remove(spotlight.mesh);
+      spotlight = null;
+    }
+
+    if (!spotlight) {
+      spotlight = {
+        id: entity.id,
+        entity: entity
+      };
+      spotlight.geometry = new three.EdgesGeometry(entity.geometry);
+      spotlight.mesh = new three.LineSegments(spotlight.geometry);
+      spotlight.mesh.material.depthTest = false;
+      spotlight.mesh.material.color = new three.Color(0xffffff);
+      spotlight.mesh.material.linewidth = 3;
+      spotlight.mesh.layers.set(1);
+      worldscene.add(spotlight.mesh);
+      ecs.emit('spotlight set', entity.id, spotlight);
+    }
+  };
+
+  var selected = {};
+  var currentTool = null;
+  ecs.on('tool select', function (id, tool) {
+    return currentTool = tool.current;
+  });
+  ecs.on('remove selection', function (id) {
+    worldscene.remove(selected[id].mesh);
+    selectionGroup.remove(selected[id].entity.mesh);
+    worldscene.add(selected[id].entity.mesh);
+    delete selected[id];
+    ecs.emit('selection removed', id);
+  });
+  ecs.on('add selection', function (id, entity) {
+    var selection = {
+      id: id,
+      entity: entity
+    };
+    selection.geometry = new three.EdgesGeometry(selection.entity.geometry);
+    selection.mesh = new three.LineSegments(selection.geometry);
+    selection.mesh.material.depthTest = false;
+    selection.mesh.material.color = new three.Color(0xffffff);
+    selection.mesh.material.linewidth = 1; // selection.mesh.layers.set(1)
+
+    selected[selection.id] = selection;
+    worldscene.add(selection.mesh);
+    worldscene.remove(entity.mesh);
+    selectionGroup.add(entity.mesh);
+    ecs.emit('selection added', selection.id, selection);
+  });
+  ecs.on('pointer click', function (id, e) {
+    if (currentTool != 'select') return;
+    if (!spotlight) return;
+    if (selected[spotlight.id]) return ecs.emit('remove selection', spotlight.id);
+    ecs.emit('add selection', spotlight.id, spotlight.entity);
+  });
+  ecs.on('delete', function (id) {
+    if (selected[id]) ecs.emit('remove selection', id);
+    if (spotlight && spotlight.id == id) ecs.emit('spotlight clear');
+  });
+  var isdragging = false;
+  ecs.on('dragging started', function () {
+    return isdragging = true;
+  });
+  ecs.on('dragging finished', function () {
+    return isdragging = false;
+  });
+  var raycaster = new three.Raycaster();
+  ecs.on('physics to display delta', function (id, dt) {
+    // if (id % 60 == 0) console.log('copying position')
+    if (!isdragging) {
+      raycaster.setFromCamera(crosshair, worldcamera);
+      setSpotlight(raycaster.intersectObjects(Object.values(entities).map(function (e) {
+        return e.mesh;
+      })));
+    }
+
+    if (spotlight) {
+      spotlight.entity.mesh.getWorldPosition(spotlight.mesh.position);
+      spotlight.entity.mesh.getWorldQuaternion(spotlight.mesh.quaternion);
+    }
+
+    var _arr = Object.values(selected);
+
+    for (var _i = 0; _i < _arr.length; _i++) {
+      var selection = _arr[_i];
+      selection.entity.mesh.getWorldPosition(selection.mesh.position);
+      selection.entity.mesh.getWorldQuaternion(selection.mesh.quaternion);
+    }
+  });
+});
+},{"injectinto":"node_modules/injectinto/inject.js","three":"node_modules/three/build/three.module.js"}],"src/move.js":[function(require,module,exports) {
+var inject = require('injectinto');
+
+inject('pod', function () {
+  var ecs = inject.one('ecs');
+
+  var three = require('three');
+
+  var selected = {};
+  var selectionGroup = null;
+  ecs.on('remove selection', function (id) {
+    return delete selected[id];
+  });
+  ecs.on('add selection', function (id, entity) {
+    return selected[id] = entity;
+  });
+  ecs.on('load selection group', function (id, group) {
+    return selectionGroup = group;
+  });
+  var raycaster = new three.Raycaster();
+  var direction = new three.Vector3();
+  var currentTool = null;
+  var origin = null;
+  ecs.on('tool select', function (id, tool) {
+    return currentTool = tool.current;
+  });
+  ecs.on('dragging started', function (id, drag) {
+    if (currentTool != 'move') return;
+    direction.set(0, 0, -1);
+    direction.applyQuaternion(drag.startQuaternion);
+    raycaster.set(drag.startPosition, direction);
+    var intersects = raycaster.intersectObjects(Object.values(selected).map(function (e) {
+      return e.mesh;
+    }));
+    if (intersects.length == 0) return;
+    origin = intersects[0].point;
+  });
+  ecs.on('dragging', function (id, drag) {
+    if (currentTool != 'move') return;
+    selectionGroup.position.set(0, 0, 0);
+    if (!origin) return;
+    selectionGroup.position.add(drag.deltaPosition);
+    selectionGroup.updateMatrixWorld();
+  });
+  ecs.on('dragging finished', function (id, drag) {
+    if (currentTool != 'move') return;
+    selectionGroup.position.set(0, 0, 0);
+    if (!origin) return;
+    selectionGroup.position.add(drag.deltaPosition);
+    selectionGroup.updateMatrixWorld();
+  });
+});
+},{"injectinto":"node_modules/injectinto/inject.js","three":"node_modules/three/build/three.module.js"}],"src/display.js":[function(require,module,exports) {
+// https://threejs.org/
+// https://threejs.org/docs/
+var inject = require('injectinto');
+
+inject('pod', function () {
+  var ecs = inject.one('ecs');
+
+  var three = require('three');
+
+  var canvas = document.getElementById('canvas');
+  var entities = {};
+  var worldscene = null;
+  var renderer = null;
+  var worldcamera = null;
+  var axiscamera = null;
+  var axisscene = null;
+  var groundMaterial = null;
+  var boxMaterial = null;
+  ecs.on('init', function () {
+    worldcamera = new three.PerspectiveCamera(75, canvas.width / canvas.height, 0.1, 1000);
+    worldscene = new three.Scene();
+    groundMaterial = new three.MeshLambertMaterial({
+      color: 0xFD9148
+    });
+    boxMaterial = new three.MeshLambertMaterial({
+      color: 0x6297D0
+    }); // worldscene.fog = new three.Fog(0xffffff, 0, 200)
+    // Three Point Lighting
+
+    var keyLight = new three.DirectionalLight(0xffffff, 1);
+    keyLight.position.set(-1, 1, 1);
+    worldscene.add(keyLight);
+    var fillLight = new three.DirectionalLight(0xffffff, 0.5);
+    fillLight.position.set(1, 1, -1);
+    worldscene.add(fillLight);
+    var backLight = new three.AmbientLight(0xffffff, 0.2);
+    worldscene.add(backLight);
+    renderer = new three.WebGLRenderer({
+      canvas: canvas
+    });
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMapSoft = true;
+    renderer.setSize(canvas.width, canvas.height, false);
+    renderer.setClearColor(0xffffff, 1);
+    renderer.autoClear = false;
+    axiscamera = new three.OrthographicCamera(-1, 1, 1, -1, 0, 2);
+    axisscene = new three.Scene();
+    axisscene.add(new three.AmbientLight(0x111111));
+    axisscene.add(new three.AxesHelper(1));
+  });
+  ecs.on('load', function () {
+    ecs.emit('load world camera', null, worldcamera);
+    ecs.emit('load world scene', null, worldscene);
+  });
+  ecs.on('load ground', function (id, ground) {
+    ground.geometry = new three.PlaneGeometry(3000, 3000, 50, 50);
+    ground.geometry.applyMatrix(new three.Matrix4().makeRotationX(-Math.PI / 2));
+    ground.mesh = new three.Mesh(ground.geometry, groundMaterial);
+    ground.mesh.castShadow = true;
+    ground.mesh.receiveShadow = true;
+    ground.mesh.ecsid = id;
+    ground.selectable = false;
+    worldscene.add(ground.mesh);
+    entities[id] = ground;
+  });
+  ecs.on('load camera', function (id, camera) {
+    camera.body = new three.Object3D();
+    camera.body.ecsid = id;
+    camera.selectable = false;
+    worldscene.add(camera.body);
+    camera.head = new three.Object3D();
+    camera.head.add(worldcamera);
+    camera.body.position.y = 2;
+    camera.body.add(camera.head);
+    entities[id] = camera;
+  });
+  var menuopen = false;
+  ecs.on('menu open', function () {
+    worldcamera.layers.enable(1);
+    menuopen = true;
+  });
+  ecs.on('menu close', function () {
+    worldcamera.layers.disable(1);
+    menuopen = false;
+  });
+  ecs.on('load box', function (id, box) {
+    var halfExtents = box.halfExtents ? box.halfExtents : new three.Vector3(1, 1, 1);
+    box.geometry = new three.BoxGeometry(halfExtents.x * 2, halfExtents.y * 2, halfExtents.z * 2);
+    box.mesh = new three.Mesh(box.geometry, boxMaterial);
+    box.mesh.ecsid = id;
+    worldscene.add(box.mesh);
+    box.mesh.castShadow = true;
+    box.mesh.receiveShadow = true;
+    entities[id] = box;
+  });
+  ecs.on('delete', function (id) {
+    if (entities[id]) {
+      if (entities[id].mesh) worldscene.remove(entities[id].mesh);
+      delete entities[id];
+    }
+  });
+  ecs.on('display delta', function (id, dt) {
+    // if (id % 60 == 0) console.log('rendering')
+    worldcamera.getWorldQuaternion(axiscamera.quaternion);
+    axiscamera.position.set(0, 0, 1);
+    axiscamera.position.applyQuaternion(axiscamera.quaternion);
+    renderer.clear(true, true, true);
+    renderer.setViewport(0, 0, canvas.width, canvas.height);
+    renderer.render(worldscene, worldcamera);
+    renderer.clear(false, true, false);
+    renderer.setViewport(10, canvas.height - 60, 50, 50);
+    renderer.render(axisscene, axiscamera);
+  });
+});
+},{"injectinto":"node_modules/injectinto/inject.js","three":"node_modules/three/build/three.module.js"}],"../../.config/yarn/global/node_modules/parcel-bundler/src/builtins/bundle-url.js":[function(require,module,exports) {
 var bundleURL = null;
 
 function getBundleURLCached() {
@@ -49364,15 +49421,9 @@ if (!inject.oneornone('ecs')) {
 
   require('./physics');
 
-  require('./selection');
-
-  require('./display');
-
   require('./controls');
 
   require('./constraints');
-
-  require('./drag');
 
   require('./hotkeys');
 
@@ -49382,7 +49433,15 @@ if (!inject.oneornone('ecs')) {
 
   require('./tools');
 
+  require('./drag');
+
   require('./scripts');
+
+  require('./selection');
+
+  require('./move');
+
+  require('./display');
 
   require('./ui');
 
@@ -49435,22 +49494,24 @@ if (!inject.oneornone('ecs')) {
   });
   ecs.on('start', function () {
     var last = Date.now();
+    var frame = 0;
 
     var animate = function animate() {
+      frame++;
       window.requestAnimationFrame(animate);
       var current = Date.now();
       var dt = current - last;
-      ecs.emit('event delta', null, dt);
-      ecs.emit('physics delta', null, dt);
-      ecs.emit('physics to display delta', null, dt);
-      ecs.emit('display delta', null, dt);
+      ecs.emit('event delta', frame, dt);
+      ecs.emit('physics delta', frame, dt);
+      ecs.emit('physics to display delta', frame, dt);
+      ecs.emit('display delta', frame, dt);
       last = current;
     };
 
     window.requestAnimationFrame(animate);
   });
 } else location.reload(true);
-},{"injectinto":"node_modules/injectinto/inject.js","./ecs":"src/ecs.js","./physics":"src/physics.js","./selection":"src/selection.js","./display":"src/display.js","./controls":"src/controls.js","./constraints":"src/constraints.js","./drag":"src/drag.js","./hotkeys":"src/hotkeys.js","./pointercapture":"src/pointercapture.js","./input":"src/input.js","./tools":"src/tools.js","./scripts":"src/scripts.js","./ui":"src/ui.js"}],"../../.config/yarn/global/node_modules/parcel-bundler/src/builtins/hmr-runtime.js":[function(require,module,exports) {
+},{"injectinto":"node_modules/injectinto/inject.js","./ecs":"src/ecs.js","./physics":"src/physics.js","./controls":"src/controls.js","./constraints":"src/constraints.js","./hotkeys":"src/hotkeys.js","./pointercapture":"src/pointercapture.js","./input":"src/input.js","./tools":"src/tools.js","./drag":"src/drag.js","./scripts":"src/scripts.js","./selection":"src/selection.js","./move":"src/move.js","./display":"src/display.js","./ui":"src/ui.js"}],"../../.config/yarn/global/node_modules/parcel-bundler/src/builtins/hmr-runtime.js":[function(require,module,exports) {
 var global = arguments[3];
 var OVERLAY_ID = '__parcel__error__overlay__';
 var OldModule = module.bundle.Module;

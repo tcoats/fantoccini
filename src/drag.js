@@ -68,9 +68,12 @@ inject('pod', () => {
     if (mouseIsDown) {
       if (mouseDownAt && (Date.now() - mouseDownAt > 200)) {
         mouseDownAt = null
-        ecs.emit('dragging started', null, drag)
+        ecs.emit('dragging started', null, dragCalc())
       }
-      if (!mouseDownAt) ecs.emit('dragging', null, dragCalc())
+      if (!mouseDownAt) {
+        // if (id % 60 == 0) console.log('dragging')
+        ecs.emit('dragging', null, dragCalc())
+      }
     }
   })
 })

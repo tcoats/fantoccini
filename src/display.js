@@ -110,6 +110,7 @@ inject('pod', () => {
   })
 
   ecs.on('display delta', (id, dt) => {
+    // if (id % 60 == 0) console.log('rendering')
     worldcamera.getWorldQuaternion(axiscamera.quaternion)
     axiscamera.position.set(0, 0, 1)
     axiscamera.position.applyQuaternion(axiscamera.quaternion)

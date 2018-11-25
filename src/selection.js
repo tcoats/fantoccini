@@ -105,18 +105,19 @@ inject('pod', () => {
   ecs.on('dragging finished', () => isdragging = false)
   const raycaster = new three.Raycaster()
   ecs.on('physics to display delta', (id, dt) => {
+    // if (id % 60 == 0) console.log('copying position')
     if (!isdragging) {
       raycaster.setFromCamera(crosshair, worldcamera)
       setSpotlight(raycaster.intersectObjects(
         Object.values(entities).map(e => e.mesh)))
     }
     if (spotlight) {
-      spotlight.mesh.position.copy(spotlight.entity.mesh.position)
-      spotlight.mesh.quaternion.copy(spotlight.entity.mesh.quaternion)
+      spotlight.entity.mesh.getWorldPosition(spotlight.mesh.position)
+      spotlight.entity.mesh.getWorldQuaternion(spotlight.mesh.quaternion)
     }
     for (let selection of Object.values(selected)) {
-      selection.mesh.position.copy(selection.entity.mesh.position)
-      selection.mesh.quaternion.copy(selection.entity.mesh.quaternion)
+      selection.entity.mesh.getWorldPosition(selection.mesh.position)
+      selection.entity.mesh.getWorldQuaternion(selection.mesh.quaternion)
     }
   })
 })
