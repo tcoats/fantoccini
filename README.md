@@ -1,5 +1,10 @@
 # Fantoccini
 
+http://evanw.github.io/csg.js/
+https://github.com/mxgmn/WaveFunctionCollapse
+http://www.procjam.com/tutorials/wfc/
+https://www.reddit.com/r/VoxelGameDev/comments/9yu8qy/palettebased_compression_for_chunked_discrete/
+
 ## Move tool
 - All unconstrained = plane normal to camera
 - One constrained = plane on both unconstrained axies

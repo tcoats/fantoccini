@@ -47981,6 +47981,11 @@ inject('pod', function () {
 
   var selected = {};
   var selectionGroup = null;
+  var constraints = {
+    x: false,
+    y: false,
+    z: false
+  };
   ecs.on('remove selection', function (id) {
     return delete selected[id];
   });
@@ -47990,10 +47995,14 @@ inject('pod', function () {
   ecs.on('load selection group', function (id, group) {
     return selectionGroup = group;
   });
+  ecs.on('constrain axis', function (id, c) {
+    return constraints = c;
+  });
   var raycaster = new three.Raycaster();
   var direction = new three.Vector3();
   var currentTool = null;
   var origin = null;
+  var plane = null;
   ecs.on('tool select', function (id, tool) {
     return currentTool = tool.current;
   });
@@ -48006,21 +48015,40 @@ inject('pod', function () {
       return e.mesh;
     }));
     if (intersects.length == 0) return;
-    origin = intersects[0].point;
+
+    if (!constraints.x && !constraints.y && !constraints.z) {
+      plane = {
+        geometry: new three.PlaneGeometry(1000, 1000)
+      };
+      plane.mesh = new three.Mesh(plane.geometry, new three.MeshBasicMaterial({
+        side: three.DoubleSide
+      }));
+      plane.mesh.position.copy(intersects[0].point);
+      plane.mesh.quaternion.copy(drag.startQuaternion);
+      console.log(plane.mesh.quaternion);
+    }
   });
+  var frame = 0;
   ecs.on('dragging', function (id, drag) {
     if (currentTool != 'move') return;
     selectionGroup.position.set(0, 0, 0);
-    if (!origin) return;
-    selectionGroup.position.add(drag.deltaPosition);
+    if (!plane) return;
+    direction.set(0, 0, -1);
+    direction.applyQuaternion(drag.quaternion);
+    raycaster.set(drag.position, direction);
+    var intersects = raycaster.intersectObject(plane.mesh);
+    frame++;
+    if (intersects.length == 0) return;
+    direction.copy(plane.mesh.position);
+    direction.sub(intersects[0].point);
+    selectionGroup.position.sub(direction);
     selectionGroup.updateMatrixWorld();
   });
   ecs.on('dragging finished', function (id, drag) {
     if (currentTool != 'move') return;
     selectionGroup.position.set(0, 0, 0);
-    if (!origin) return;
-    selectionGroup.position.add(drag.deltaPosition);
-    selectionGroup.updateMatrixWorld();
+    if (!plane) return; // selectionGroup.position.add(drag.deltaPosition)
+    // selectionGroup.updateMatrixWorld()
   });
 });
 },{"injectinto":"node_modules/injectinto/inject.js","three":"node_modules/three/build/three.module.js"}],"src/display.js":[function(require,module,exports) {
@@ -49538,7 +49566,7 @@ var parent = module.bundle.parent;
 if ((!parent || !parent.isParcelRequire) && typeof WebSocket !== 'undefined') {
   var hostname = "" || location.hostname;
   var protocol = location.protocol === 'https:' ? 'wss' : 'ws';
-  var ws = new WebSocket(protocol + '://' + hostname + ':' + "64887" + '/');
+  var ws = new WebSocket(protocol + '://' + hostname + ':' + "51224" + '/');
 
   ws.onmessage = function (event) {
     var data = JSON.parse(event.data);
